@@ -49,4 +49,18 @@ describe("parseInputForm", () => {
     expect(r.fields).toEqual(expected);
     expect(Object.values(r.schema).map((d) => d.order)).toEqual(Object.keys(expected).map((_, i) => i));
   });
+
+  test("select options match the browser: optgroup, unclosed options, whitespace", () => {
+    const html =
+      `<form name="F"><select name="s">` +
+      `<option>  a\n  b  ` +
+      `<optgroup label="g"><option value="v1">x</option><option selected> \u3000y\u3000 </option></optgroup>` +
+      `<option>\u00a0z</option></select></form>`;
+    const r = parseInputForm(html);
+    const select = new JSDOM(html).window.document.querySelector("select")!;
+    const expected = Array.from(select.options).map((o) => ({ value: o.value, label: o.text }));
+    expect(expected).toHaveLength(4);
+    expect(r.schema.s.options).toEqual(expected);
+    expect(r.fields.s).toBe(select.value);
+  });
 });
