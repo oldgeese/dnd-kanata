@@ -2,9 +2,12 @@
   "name": "dnd-kanata",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/core", "functions", "web"],
+  "packageManager": "pnpm@12.15.0",
   "scripts": {
-    "test": "npm test --workspaces --if-present",
+    "test": "pnpm -r --if-present test",
     "fixtures": "bash scripts/fetch-fixtures.sh"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.34.1"
   }
 }

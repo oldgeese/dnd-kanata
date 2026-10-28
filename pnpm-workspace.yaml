@@ -1,0 +1,8 @@
+packages:
+  - packages/core
+  - functions
+  - web
+allowBuilds:
+  esbuild: true
+  re2: true
+  protobufjs: false

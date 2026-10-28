@@ -7,7 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function read(name: string): Buffer {
   const p = resolve(root, "fixtures", name);
-  if (!existsSync(p)) throw new Error(`${p} がありません。npm run fixtures を実行してください`);
+  if (!existsSync(p)) throw new Error(`${p} がありません。pnpm fixtures を実行してください`);
   return readFileSync(p);
 }
 
