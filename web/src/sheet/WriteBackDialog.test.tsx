@@ -129,6 +129,17 @@ describe("WriteBackDialog", () => {
     expect(callable).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    [{ status: "unencodable", fields: ["char_name"] }, "元サイトで使えない文字"],
+    [{ status: "schema-changed", added: ["x"] }, "元サイトの入力項目が変わったため"],
+  ])("clears the password after %o", async (data, text) => {
+    callable.mockResolvedValue({ data });
+    setup();
+    await run();
+    await screen.findByText(new RegExp(text));
+    expect(pw()).toHaveValue("");
+  });
+
   it("clears the password after bad-password", async () => {
     callable.mockResolvedValue({ data: { status: "bad-password" } });
     setup();

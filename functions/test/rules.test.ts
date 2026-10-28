@@ -109,6 +109,7 @@ describe("owner", () => {
   it("rejects deleting a single field", () => assertFails(remove(ref(owner(), "sheets/priv/fields/str"))));
   it("rejects numeric field value", () => assertFails(set(ref(owner(), "sheets/priv/fields/str"), 5)));
   it("reads own users/{uid}/sheets", () => assertSucceeds(get(ref(owner(), `users/${OWNER}/sheets`))));
+  it("reads own users/{uid}", () => assertSucceeds(get(ref(owner(), `users/${OWNER}`))));
   it("cannot write users/{uid}", () => assertFails(set(ref(owner(), `users/${OWNER}/sheets/x`), true)));
 });
 

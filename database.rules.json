@@ -23,9 +23,7 @@
     },
     "users": {
       "$uid": {
-        "sheets": {
-          ".read": "auth != null && auth.uid === $uid"
-        }
+        ".read": "auth != null && auth.uid === $uid"
       }
     }
   }

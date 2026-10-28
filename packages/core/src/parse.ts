@@ -55,17 +55,22 @@ export function parseInputForm(html: string): { fields: Fields; schema: FormSche
 
 function readOptions(nodes: Node[]): { value: string; label: string; selected: boolean }[] {
   const out: { value: string; label: string; selected: boolean; el: HTMLElement }[] = [];
-  for (const n of nodes) {
-    if ("tagName" in n) {
-      const el = n as HTMLElement;
-      if (el.tagName.toLowerCase() !== "option") continue;
-      out.push({ value: "", label: el.text, selected: el.hasAttribute("selected"), el });
-    } else if (out.length > 0) {
-      out[out.length - 1].label += n.text;
+  const walk = (list: Node[]) => {
+    for (const n of list) {
+      if ("tagName" in n) {
+        const el = n as HTMLElement;
+        const tag = el.tagName.toLowerCase();
+        if (tag === "optgroup") walk(el.childNodes);
+        else if (tag === "option") out.push({ value: "", label: el.text, selected: el.hasAttribute("selected"), el });
+      } else if (out.length > 0) {
+        out[out.length - 1].label += n.text;
+      }
     }
-  }
+  };
+  walk(nodes);
   return out.map((o) => {
-    const label = o.label.trim();
+    // Like the browser's option.text: strip and collapse ASCII whitespace only (keep U+3000 and NBSP).
+    const label = o.label.replace(/[\t\n\f\r ]+/g, " ").replace(/^ | $/g, "");
     return { value: o.el.getAttribute("value") ?? label, label, selected: o.selected };
   });
 }

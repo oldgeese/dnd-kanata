@@ -192,6 +192,40 @@ describe("useSheet", () => {
     expect(result.current.sheet!.fields.dex).toBe("20");
   });
 
+  it("sends a field edited while another save is in flight in the next update, and keeps both on screen", async () => {
+    let resolveFirst!: () => void;
+    update.mockReturnValueOnce(new Promise<void>((r) => (resolveFirst = r)));
+    const { result } = setup();
+    act(() => result.current.setField("dex", "20"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(update).toHaveBeenCalledTimes(1);
+    emit("sheets/s1", { ...SHEET, fields: { ...SHEET.fields, dex: "20" } }); // 書き込みのローカル反映
+
+    act(() => result.current.setField("char_name", "新名"));
+    expect(result.current.saveState).toBe("saving");
+    expect(result.current.sheet!.fields).toMatchObject({ dex: "20", char_name: "新名" });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update.mock.calls[1]).toEqual(["sheets/s1", { "fields/char_name": "新名", updatedAt: TS }]);
+    emit("sheets/s1", { ...SHEET, fields: { ...SHEET.fields, dex: "20", char_name: "新名" } });
+
+    await act(async () => resolveFirst());
+    expect(result.current.saveState).toBe("saved");
+    expect(result.current.sheet!.fields).toMatchObject({ dex: "20", char_name: "新名" });
+  });
+
+  it("shows the remote value after save, as the database echoes local writes into the snapshot", async () => {
+    const { result } = setup();
+    act(() => result.current.setField("dex", "20"));
+    // Realtime Database は書き込みを即座にローカルのスナップショットへ反映する
+    emit("sheets/s1", { ...SHEET, fields: { ...SHEET.fields, dex: "20" } });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(result.current.saveState).toBe("saved");
+    // 保存が確定した項目は overlay から外れ、以後は他の端末の変更がそのまま見える
+    emit("sheets/s1", { ...SHEET, fields: { ...SHEET.fields, dex: "18" } });
+    expect(result.current.sheet!.fields.dex).toBe("18");
+  });
+
   it("flushes pending changes on unmount", () => {
     const { result, unmount } = setup();
     act(() => result.current.setField("dex", "20"));

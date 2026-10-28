@@ -169,4 +169,4 @@ export async function writeBackHandler(request: Pick<CallableRequest<WriteBackRe
   return { status: "ok" };
 }
 
-export const writeBack = onCall<WriteBackRequest>({ region: "asia-northeast1", invoker: "public" }, writeBackHandler);
+export const writeBack = onCall<WriteBackRequest>({ region: "asia-northeast1" }, writeBackHandler);

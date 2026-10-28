@@ -97,6 +97,29 @@ describe("buildWriteBackBody", () => {
     expect(s).not.toContain("ghost");
   });
 
+  it("orders pairs by schema order, not by key order", () => {
+    const schema: FormSchema = {
+      c: { kind: "text", order: 3 },
+      a: { kind: "text", order: 1 },
+      b: { kind: "text", order: 2 },
+    };
+    const r = buildWriteBackBody({ id: 1, fields: { a: "1", b: "2", c: "3" }, schema, password: "pw", lastUpdate: "LU" });
+    if (!r.ok) throw new Error("expected ok");
+    expect(decodeBody(r.body).map(([k]) => k)).toEqual(["a", "b", "c", "last_update", "ID", "UPDATE", "password"]);
+  });
+
+  it("appends last_update before ID when the schema has none, or sends it in place", () => {
+    const without: FormSchema = { a: { kind: "text", order: 1 } };
+    const r1 = buildWriteBackBody({ id: 7, fields: { a: "1" }, schema: without, password: "pw", lastUpdate: "LU" });
+    if (!r1.ok) throw new Error("expected ok");
+    expect(decodeBody(r1.body)).toEqual([["a", "1"], ["last_update", "LU"], ["ID", "7"], ["UPDATE", "TRUE"], ["password", "pw"]]);
+
+    const withLu: FormSchema = { last_update: { kind: "hidden", order: 1 }, a: { kind: "text", order: 2 } };
+    const r2 = buildWriteBackBody({ id: 7, fields: { a: "1", last_update: "stale" }, schema: withLu, password: "pw", lastUpdate: "LU" });
+    if (!r2.ok) throw new Error("expected ok");
+    expect(decodeBody(r2.body)).toEqual([["last_update", "LU"], ["a", "1"], ["ID", "7"], ["UPDATE", "TRUE"], ["password", "pw"]]);
+  });
+
   it("never logs the password", () => {
     const spies = (["log", "info", "warn", "error", "debug"] as const).map((k) => vi.spyOn(console, k).mockImplementation(() => {}));
     build({ password: "pw-secret" });

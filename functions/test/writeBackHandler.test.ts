@@ -76,6 +76,20 @@ describe("writeBack", () => {
     expect(posts()).toBe(0);
   });
 
+  it("returns schema-changed even with force", async () => {
+    await getDatabase().ref(`sheets/${sheetId}/sourceLastUpdate`).set("old");
+    inputForms = [iconv.encode(formText.replace("</form>", '<input type="text" name="brand_new" value=""></form>'), "cp932")];
+    expect(await call("u1", { sheetId, password: "pw", force: true })).toEqual({ status: "schema-changed", added: ["brand_new"] });
+    expect(posts()).toBe(0);
+  });
+
+  it("returns unencodable even with force", async () => {
+    await getDatabase().ref(`sheets/${sheetId}/sourceLastUpdate`).set("old");
+    await getDatabase().ref(`sheets/${sheetId}/fields/memo`).set("😀");
+    expect(await call("u1", { sheetId, password: "pw", force: true })).toEqual({ status: "unencodable", fields: ["memo"] });
+    expect(posts()).toBe(0);
+  });
+
   it("returns unencodable without POSTing", async () => {
     await getDatabase().ref(`sheets/${sheetId}/fields/memo`).set("😀");
     expect(await call("u1", { sheetId, password: "pw" })).toEqual({ status: "unencodable", fields: ["memo"] });
@@ -113,7 +127,8 @@ describe("writeBack", () => {
   });
 
   it("rate limits", async () => {
-    for (let i = 0; i < 4; i++) await call("u1", { sheetId, password: "pw" });
+    await getDatabase().ref("rateLimits").set(null); // beforeEach の取り込みの分を数えない
+    for (let i = 0; i < 5; i++) await call("u1", { sheetId, password: "pw" });
     await expect(call("u1", { sheetId, password: "pw" })).rejects.toMatchObject({ code: "resource-exhausted" });
   });
 });
