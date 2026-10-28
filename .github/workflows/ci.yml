@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: fixtures
-          key: source-fixtures-v1
+          key: source-fixtures-v2
       - name: Fetch fixtures
         if: steps.fixtures-cache.outputs.cache-hit != 'true'
         run: pnpm fixtures
