@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import iconv from "iconv-lite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { computeDerived, parseInputForm, type FormSchema } from "@dnd-kanata/core";
-import { buildWriteBackBody } from "../src/writeBack";
+import { buildWriteBackBody, classifyWriteBackResponse } from "../src/writeBack";
 
 const html = iconv.decode(readFileSync(resolve(__dirname, "../../fixtures/input_form_54555.html")), "cp932");
 const parsed = parseInputForm(html);
@@ -102,5 +102,20 @@ describe("buildWriteBackBody", () => {
     build({ password: "pw-secret" });
     build({ password: "pw-secret", fields: { ...parsed.fields, memo: "😀" } });
     for (const s of spies) expect(JSON.stringify(s.mock.calls)).not.toContain("pw-secret");
+  });
+});
+
+describe("classifyWriteBackResponse", () => {
+  const fx = (n: string) => iconv.decode(readFileSync(resolve(__dirname, `../../fixtures/${n}`)), "cp932");
+  it("classifies the captured responses", () => {
+    expect(classifyWriteBackResponse(fx("writeback_ok.html"))).toBe("ok");
+    expect(classifyWriteBackResponse(fx("writeback_ok.html"), 54555)).toBe("ok");
+    expect(classifyWriteBackResponse(fx("writeback_bad_password.html"))).toBe("bad-password");
+  });
+  it("requires matching ID when given", () => {
+    expect(classifyWriteBackResponse(fx("writeback_ok.html"), 1)).toBe("unknown");
+  });
+  it("treats anything else as unknown", () => {
+    expect(classifyWriteBackResponse("<html></html>")).toBe("unknown");
   });
 });

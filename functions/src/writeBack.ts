@@ -1,5 +1,9 @@
 import iconv from "iconv-lite";
-import { computeDerived, type Fields, type FormSchema } from "@dnd-kanata/core";
+import { getDatabase } from "firebase-admin/database";
+import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
+import { computeDerived, decodeRecord, parseInputForm, type Fields, type FormSchema } from "@dnd-kanata/core";
+import { checkRateLimit } from "./rateLimit";
+import { fetchInputForm, postOutput, SourceError } from "./source";
 
 type BuildResult = { ok: true; body: Buffer } | { ok: false; unencodable: string[] };
 
@@ -59,6 +63,7 @@ export function buildWriteBackBody(args: {
     pairs.push([name, normalizeForCp932(v)]);
   }
   if (!("last_update" in schema)) pairs.push(["last_update", lastUpdate]);
+  // The password is intentionally NOT normalized (no CP932 variant mapping): it is sent verbatim.
   pairs.push(["ID", String(id)], ["UPDATE", "TRUE"], ["password", password]);
 
   const unencodable: string[] = [];
@@ -75,3 +80,87 @@ export function buildWriteBackBody(args: {
   if (unencodable.length) return { ok: false, unencodable };
   return { ok: true, body: Buffer.from(parts.join("&"), "latin1") };
 }
+
+export type WriteBackOutcome = "ok" | "bad-password" | "unknown";
+
+export function classifyWriteBackResponse(html: string, id?: number): WriteBackOutcome {
+  if (html.includes("パスワードが違います")) return "bad-password";
+  const link = id === undefined ? 'href="INPUT_FORM.php?ID=' : `href="INPUT_FORM.php?ID=${id}"`;
+  if (html.includes(link) && html.includes("表示フォーム")) return "ok";
+  return "unknown";
+}
+
+export type WriteBackRequest = { sheetId: string; password: string; force?: boolean };
+export type WriteBackResponse =
+  | { status: "ok" }
+  | { status: "source-changed"; sourceLastUpdate: string; currentLastUpdate: string }
+  | { status: "unencodable"; fields: string[] }
+  | { status: "schema-changed"; added: string[] }
+  | { status: "bad-password" };
+
+function sourceError(e: unknown): HttpsError {
+  if (e instanceof SourceError && e.code === "not-found") return new HttpsError("not-found", "指定の ID のキャラクターシートが見つかりません。");
+  return new HttpsError("unavailable", "元サイトに接続できませんでした。");
+}
+
+export async function writeBackHandler(request: Pick<CallableRequest<WriteBackRequest>, "auth" | "data">): Promise<WriteBackResponse> {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "ログインが必要です。");
+  const { sheetId, password, force } = request.data ?? ({} as Partial<WriteBackRequest>);
+  if (typeof sheetId !== "string" || !sheetId || /[.#$\[\]/]/.test(sheetId) || typeof password !== "string" || !password) {
+    throw new HttpsError("invalid-argument", "リクエストが正しくありません。");
+  }
+
+  await checkRateLimit(uid);
+
+  const sheetRef = getDatabase().ref(`sheets/${sheetId}`);
+  const sheet = (await sheetRef.get()).val() as {
+    ownerUid: string;
+    sourceId: number;
+    fields: Fields;
+    schema: FormSchema;
+    sourceLastUpdate: string;
+  } | null;
+  if (!sheet) throw new HttpsError("not-found", "シートが見つかりません。");
+  if (sheet.ownerUid !== uid) throw new HttpsError("permission-denied", "このシートの持ち主ではありません。");
+
+  const fields = decodeRecord(sheet.fields ?? {});
+  const schema = decodeRecord(sheet.schema ?? {});
+
+  let current: ReturnType<typeof parseInputForm>;
+  try {
+    current = parseInputForm(await fetchInputForm(sheet.sourceId));
+  } catch (e) {
+    throw sourceError(e);
+  }
+  const added = Object.keys(current.schema).filter((n) => !(n in schema)).sort();
+  if (added.length) return { status: "schema-changed", added };
+  if (current.lastUpdate !== sheet.sourceLastUpdate && !force) {
+    return { status: "source-changed", sourceLastUpdate: sheet.sourceLastUpdate, currentLastUpdate: current.lastUpdate };
+  }
+
+  const built = buildWriteBackBody({ id: sheet.sourceId, fields, schema, password, lastUpdate: current.lastUpdate });
+  if (!built.ok) return { status: "unencodable", fields: built.unencodable };
+
+  let html: string;
+  try {
+    html = await postOutput(sheet.sourceId, built.body);
+  } catch (e) {
+    throw sourceError(e);
+  }
+  const outcome = classifyWriteBackResponse(html, sheet.sourceId);
+  if (outcome === "bad-password") return { status: "bad-password" };
+  if (outcome === "unknown") throw new HttpsError("internal", "元サイトの応答を判定できませんでした。");
+
+  // The source already accepted the write; if the re-fetch fails we still report ok
+  // (a stale sourceLastUpdate only means the next write-back asks to confirm).
+  try {
+    const after = parseInputForm(await fetchInputForm(sheet.sourceId));
+    await sheetRef.child("sourceLastUpdate").set(after.lastUpdate);
+  } catch {
+    /* see above */
+  }
+  return { status: "ok" };
+}
+
+export const writeBack = onCall<WriteBackRequest>({ region: "asia-northeast1" }, writeBackHandler);
