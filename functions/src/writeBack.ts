@@ -84,9 +84,10 @@ export function buildWriteBackBody(args: {
 export type WriteBackOutcome = "ok" | "bad-password" | "unknown";
 
 export function classifyWriteBackResponse(html: string, id?: number): WriteBackOutcome {
-  if (html.includes("パスワードが違います")) return "bad-password";
+  // Check ok markers first: the display page repeats the sheet's own text, which could contain the bad-password phrase.
   const link = id === undefined ? 'href="INPUT_FORM.php?ID=' : `href="INPUT_FORM.php?ID=${id}"`;
   if (html.includes(link) && html.includes("表示フォーム")) return "ok";
+  if (html.includes("パスワードが違います")) return "bad-password";
   return "unknown";
 }
 
@@ -133,6 +134,8 @@ export async function writeBackHandler(request: Pick<CallableRequest<WriteBackRe
   } catch (e) {
     throw sourceError(e);
   }
+  if (current.id !== String(sheet.sourceId)) throw new HttpsError("not-found", "指定の ID のキャラクターシートが見つかりません。");
+  if (!current.schema.str) throw new HttpsError("unavailable", "元サイトのフォーム形式が想定と異なります。");
   const added = Object.keys(current.schema).filter((n) => !(n in schema)).sort();
   if (added.length) return { status: "schema-changed", added };
   if (current.lastUpdate !== sheet.sourceLastUpdate && !force) {

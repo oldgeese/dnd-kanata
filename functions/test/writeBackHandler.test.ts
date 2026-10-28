@@ -82,6 +82,18 @@ describe("writeBack", () => {
     expect(posts()).toBe(0);
   });
 
+  it("refuses to POST when the fetched form has a different ID, even with force", async () => {
+    inputForms = [iconv.encode(formText.replace('name="ID" value="54555"', 'name="ID" value=""'), "cp932")];
+    await expect(call("u1", { sheetId, password: "pw", force: true })).rejects.toMatchObject({ code: "not-found" });
+    expect(posts()).toBe(0);
+  });
+
+  it("refuses to POST when the fetched form lacks the str field, even with force", async () => {
+    inputForms = [iconv.encode(formText.replace('name="str"', 'name="strx"'), "cp932")];
+    await expect(call("u1", { sheetId, password: "pw", force: true })).rejects.toMatchObject({ code: "unavailable" });
+    expect(posts()).toBe(0);
+  });
+
   it("maps a bad-password response", async () => {
     postResponse = fx("writeback_bad_password.html");
     expect(await call("u1", { sheetId, password: "pw" })).toEqual({ status: "bad-password" });

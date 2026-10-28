@@ -115,6 +115,11 @@ describe("classifyWriteBackResponse", () => {
   it("requires matching ID when given", () => {
     expect(classifyWriteBackResponse(fx("writeback_ok.html"), 1)).toBe("unknown");
   });
+  it("still classifies ok when the page text contains the bad-password phrase", () => {
+    const injected = fx("writeback_ok.html").replace("</body>", "<p>パスワードが違います</p></body>");
+    expect(injected).toContain("パスワードが違います");
+    expect(classifyWriteBackResponse(injected, 54555)).toBe("ok");
+  });
   it("treats anything else as unknown", () => {
     expect(classifyWriteBackResponse("<html></html>")).toBe("unknown");
   });
