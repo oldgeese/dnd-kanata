@@ -56,7 +56,7 @@ describe("buildWriteBackBody", () => {
   });
 
   it("round-trips CP932 specials", () => {
-    const r = build({ fields: { ...parsed.fields, memo: "～①髙" } });
+    const r = build({ fields: { ...parsed.fields, memo: "〜①髙" } });
     expect(r.ok).toBe(true);
     if (r.ok) expect(new Map(decodeBody(r.body)).get("memo")).toBe("～①髙");
   });
@@ -65,8 +65,11 @@ describe("buildWriteBackBody", () => {
     expect(build({ fields: { ...parsed.fields, memo: "a😀" } })).toEqual({ ok: false, unencodable: ["memo"] });
   });
 
-  it("flags U+301C (wave dash) as unencodable; CP932 only has U+FF5E", () => {
-    expect(build({ fields: { ...parsed.fields, memo: "〜" } })).toEqual({ ok: false, unencodable: ["memo"] });
+  it("normalizes variant code points to CP932 forms", () => {
+    const r = build({ fields: { ...parsed.fields, memo: "〜‖−¢£¬" } });
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.body.toString("latin1")).toContain("memo=%81%60%81a%81%7C%81%91%81%92%81%CA");
+    expect(new Map(decodeBody(r.body)).get("memo")).toBe("～∥－￠￡￢");
   });
 
   it("reports unencodable password without leaking it", () => {
