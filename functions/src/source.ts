@@ -4,7 +4,7 @@ const BASE = "https://dndjp.sakura.ne.jp";
 export const USER_AGENT = "dnd-kanata (+https://github.com/oldgeese/dnd-kanata)";
 
 export class SourceError extends Error {
-  constructor(public code: "unavailable" | "not-found" | "unexpected-form", message?: string) {
+  constructor(public code: "unavailable" | "not-found", message?: string) {
     super(message ?? code);
     this.name = "SourceError";
   }

@@ -113,6 +113,33 @@ describe("importSheet", () => {
     expect(await read(`sheets/${first.sheetId}/shared`)).toBe(true);
   });
 
+  it("treats a non-boolean overwrite as no overwrite", async () => {
+    const first = await call("u1", { source: "54555" });
+    await getDatabase().ref(`sheets/${first.sheetId}/fields/current_hp`).set("1");
+    const res = await call("u1", { source: "54555", overwrite: "true" as unknown as boolean });
+    expect(res).toEqual({ status: "exists", sheetId: first.sheetId });
+    expect(await read(`sheets/${first.sheetId}/fields/current_hp`)).toBe("1");
+  });
+
+  it("creates only one sheet for concurrent first imports", async () => {
+    const [a, b] = await Promise.all([call("u1", { source: "54555" }), call("u1", { source: "54555" })]);
+    expect([a.status, b.status].sort()).toEqual(["created", "exists"]);
+    expect(a.sheetId).toBe(b.sheetId);
+    expect(Object.keys(await read("sheets"))).toEqual([a.sheetId]);
+    expect(await read("users/u1/sheets")).toEqual({ [a.sheetId]: true });
+    expect(await read("users/u1/sources/54555")).toBe(a.sheetId);
+  });
+
+  it("unavailable with a form-format message when the page has no form", async () => {
+    fetchMock.mockResolvedValue(okResponse(iconv.encode("<html><body>maintenance</body></html>", "cp932")));
+    await expect(call("u1", { source: "54555" })).rejects.toMatchObject({
+      code: "unavailable",
+      message: "元サイトのフォーム形式が想定と異なります。",
+    });
+    expect(await read("sheets")).toBeNull();
+    expect(await read("users/u1/sources/54555")).toBeNull();
+  });
+
   it("not-found when the source returns an empty ID", async () => {
     fetchMock.mockResolvedValue(okResponse(emptyIdFixture));
     await expect(call("u1", { source: "54555" })).rejects.toMatchObject({ code: "not-found" });

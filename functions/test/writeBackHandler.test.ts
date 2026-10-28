@@ -50,8 +50,8 @@ const posts = () => fetchMock.mock.calls.filter((c) => c[1]?.method === "POST").
 describe("writeBack", () => {
   it("requires auth, owner, and a known sheet", async () => {
     await expect(call(null, { sheetId, password: "pw" })).rejects.toMatchObject({ code: "unauthenticated" });
-    await expect(call("u2", { sheetId, password: "pw" })).rejects.toMatchObject({ code: "permission-denied" });
-    await expect(call("u1", { sheetId: "nope", password: "pw" })).rejects.toMatchObject({ code: "not-found" });
+    await expect(call("u2", { sheetId, password: "pw" })).rejects.toMatchObject({ code: "not-found", message: "シートが見つかりません。" });
+    await expect(call("u1", { sheetId: "nope", password: "pw" })).rejects.toMatchObject({ code: "not-found", message: "シートが見つかりません。" });
     await expect(call("u1", { sheetId })).rejects.toMatchObject({ code: "invalid-argument" });
     expect(posts()).toBe(0);
   });

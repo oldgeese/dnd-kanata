@@ -1,5 +1,6 @@
 import iconv from "iconv-lite";
 import { getDatabase } from "firebase-admin/database";
+import { logger } from "firebase-functions";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { computeDerived, decodeRecord, parseInputForm, type Fields, type FormSchema } from "@dnd-kanata/core";
 import { checkRateLimit } from "./rateLimit";
@@ -101,7 +102,9 @@ export type WriteBackResponse =
 
 function sourceError(e: unknown): HttpsError {
   if (e instanceof SourceError && e.code === "not-found") return new HttpsError("not-found", "指定の ID のキャラクターシートが見つかりません。");
-  return new HttpsError("unavailable", "元サイトに接続できませんでした。");
+  if (e instanceof SourceError) return new HttpsError("unavailable", "元サイトに接続できませんでした。");
+  logger.error("writeBack: failed to read the source response", { error: String(e) });
+  return new HttpsError("unavailable", "元サイトのフォーム形式が想定と異なります。");
 }
 
 export async function writeBackHandler(request: Pick<CallableRequest<WriteBackRequest>, "auth" | "data">): Promise<WriteBackResponse> {
@@ -122,8 +125,8 @@ export async function writeBackHandler(request: Pick<CallableRequest<WriteBackRe
     schema: FormSchema;
     sourceLastUpdate: string;
   } | null;
-  if (!sheet) throw new HttpsError("not-found", "シートが見つかりません。");
-  if (sheet.ownerUid !== uid) throw new HttpsError("permission-denied", "このシートの持ち主ではありません。");
+  // Same error for missing and someone else's sheet, so callers cannot probe which sheet ids exist.
+  if (!sheet || sheet.ownerUid !== uid) throw new HttpsError("not-found", "シートが見つかりません。");
 
   const fields = decodeRecord(sheet.fields ?? {});
   const schema = decodeRecord(sheet.schema ?? {});

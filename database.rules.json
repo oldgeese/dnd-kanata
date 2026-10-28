@@ -8,7 +8,7 @@
         "fields": {
           "$key": {
             ".write": "auth != null && newData.exists() && root.child('sheets').child($sheetId).child('ownerUid').val() === auth.uid",
-            ".validate": "newData.isString() && newData.val().length <= 10000"
+            ".validate": "newData.isString() && newData.val().length <= 10000 && newData.parent().parent().child('schema').child($key).exists()"
           }
         },
         "shared": {
