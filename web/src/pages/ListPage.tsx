@@ -23,34 +23,50 @@ function errorMessage(e: unknown): string {
 
 type Summary = { name?: string; cls?: string; level?: string };
 
-function useSheetSummaries(uid: string): Record<string, Summary> {
+// 元サイトのクラス欄には「ローグ10」のようにレベルが含まれることが多いので、そのときはレベルを重ねて出さない
+export function classLabel({ cls, level }: Summary): string {
+  if (!cls) return level ? `Lv${level}` : "";
+  return /\d/.test(cls) || !level ? cls : `${cls} Lv${level}`;
+}
+
+function useSheetSummaries(uid: string): { summaries: Record<string, Summary>; failed: boolean } {
   const [ids, setIds] = useState<string[]>([]);
   const [summaries, setSummaries] = useState<Record<string, Summary>>({});
+  const [failed, setFailed] = useState(false);
 
   useEffect(
     () =>
-      onValue(ref(db, `users/${uid}/sheets`), (snap) => {
-        setIds(Object.keys((snap.val() as Record<string, true> | null) ?? {}));
-      }),
+      onValue(
+        ref(db, `users/${uid}/sheets`),
+        (snap) => {
+          setFailed(false);
+          setIds(Object.keys((snap.val() as Record<string, true> | null) ?? {}));
+        },
+        () => setFailed(true),
+      ),
     [uid],
   );
 
   const key = ids.join("\n");
   useEffect(() => {
     const unsubs = ids.map((id) =>
-      onValue(ref(db, `sheets/${id}/fields`), (snap) => {
-        const f = decodeRecord((snap.val() as Record<string, string> | null) ?? {});
-        setSummaries((prev) => ({
-          ...prev,
-          [id]: { name: f.char_name, cls: f.char_class, level: f.char_level },
-        }));
-      }),
+      onValue(
+        ref(db, `sheets/${id}/fields`),
+        (snap) => {
+          const f = decodeRecord((snap.val() as Record<string, string> | null) ?? {});
+          setSummaries((prev) => ({
+            ...prev,
+            [id]: { name: f.char_name, cls: f.char_class, level: f.char_level },
+          }));
+        },
+        () => setFailed(true),
+      ),
     );
     return () => unsubs.forEach((u) => u());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  return Object.fromEntries(ids.map((id) => [id, summaries[id] ?? {}]));
+  return { summaries: Object.fromEntries(ids.map((id) => [id, summaries[id] ?? {}])), failed };
 }
 
 function ConfirmDialog(props: { message: string; onOk(): void; onCancel(): void }) {
@@ -70,7 +86,7 @@ function ConfirmDialog(props: { message: string; onOk(): void; onCancel(): void 
 export function ListPage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const summaries = useSheetSummaries(user!.uid);
+  const { summaries, failed: listFailed } = useSheetSummaries(user!.uid);
   const [source, setSource] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,11 +135,16 @@ export function ListPage() {
           {error}
         </p>
       )}
+      {listFailed && (
+        <p role="alert" className="error">
+          キャラクター一覧を読み込めませんでした。ページを再読み込みしてください
+        </p>
+      )}
       <ul className="sheets">
         {Object.entries(summaries).map(([id, s]) => (
           <li key={id}>
             <Link to={`/c/${id}`}>
-              <strong>{s.name || "（名前なし）"}</strong> {s.cls} {s.level && `Lv${s.level}`}
+              <strong>{s.name || "（名前なし）"}</strong> {classLabel(s)}
             </Link>
           </li>
         ))}

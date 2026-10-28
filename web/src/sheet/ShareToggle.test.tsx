@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ShareToggle } from "./ShareToggle";
@@ -16,9 +16,7 @@ beforeEach(() => {
 });
 
 describe("ShareToggle", () => {
-  it("writes true and shows the share link with a copy button when turned on", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  it("writes true when turned on", async () => {
     render(<ShareToggle sheetId="s1" shared={false} />);
     expect(screen.queryByDisplayValue(`${window.location.origin}/s/s1`)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("checkbox", { name: "閲覧用リンクを有効にする" }));
@@ -32,6 +30,31 @@ describe("ShareToggle", () => {
     expect(screen.getByRole("textbox", { name: "閲覧用リンク" })).toHaveValue(`${window.location.origin}/s/s1`);
     await userEvent.click(screen.getByRole("button", { name: "コピー" }));
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/s/s1`);
+    expect(screen.getByRole("status")).toHaveTextContent("コピーしました");
+  });
+
+  it("hides the copied message after 2 seconds", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+      render(<ShareToggle sheetId="s1" shared />);
+      await userEvent.click(screen.getByRole("button", { name: "コピー" }));
+      expect(screen.getByRole("status")).toHaveTextContent("コピーしました");
+      await act(() => vi.advanceTimersByTimeAsync(2000));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows an error when copying fails", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<ShareToggle sheetId="s1" shared />);
+    await userEvent.click(screen.getByRole("button", { name: "コピー" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("コピーできませんでした");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("writes false when turned off", async () => {
