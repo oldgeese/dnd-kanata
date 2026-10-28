@@ -1,1 +1,32 @@
-{"rules": {".read": false, ".write": false}}
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "sheets": {
+      "$sheetId": {
+        ".read": "(data.child('shared').val() === true) || (auth != null && auth.uid === data.child('ownerUid').val())",
+        "fields": {
+          "$key": {
+            ".write": "auth != null && newData.exists() && root.child('sheets').child($sheetId).child('ownerUid').val() === auth.uid",
+            ".validate": "newData.isString() && newData.val().length <= 10000"
+          }
+        },
+        "shared": {
+          ".write": "auth != null && newData.exists() && root.child('sheets').child($sheetId).child('ownerUid').val() === auth.uid",
+          ".validate": "newData.isBoolean()"
+        },
+        "updatedAt": {
+          ".write": "auth != null && newData.exists() && root.child('sheets').child($sheetId).child('ownerUid').val() === auth.uid",
+          ".validate": "newData.isNumber() && newData.val() <= now"
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        "sheets": {
+          ".read": "auth != null && auth.uid === $uid"
+        }
+      }
+    }
+  }
+}
