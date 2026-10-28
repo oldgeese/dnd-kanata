@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.sha }}
       - uses: jdx/mise-action@v2
       - run: pnpm install --frozen-lockfile
       # テスト用フィクスチャは取得元サイトへの負荷を避けるためキャッシュし、ミス時のみ取得する
