@@ -4,14 +4,15 @@
 
 **Goal:** 元サイト（dndjp.sakura.ne.jp）の D&D 5版キャラクターを取り込み、1画面で表示とその場編集（自動保存）ができ、必要なときだけ手動で書き戻せる Web アプリを作る。
 
-**Architecture:** npm workspaces のモノレポ。`packages/core` は派生値計算・フォーム解析・キーのエスケープを持つ純粋な TypeScript で、`web`（React）と `functions`（Cloud Functions）の両方から使う。データは Firebase Realtime Database に置き、元サイトへのアクセスは Cloud Functions の `importSheet` / `writeBack` だけが行う。
+**Architecture:** pnpm workspaces のモノレポ。`packages/core` は派生値計算・フォーム解析・キーのエスケープを持つ純粋な TypeScript で、`web`（React）と `functions`（Cloud Functions）の両方から使う。データは Firebase Realtime Database に置き、元サイトへのアクセスは Cloud Functions の `importSheet` / `writeBack` だけが行う。
 
-**Tech Stack:** Node.js 24（mise）、TypeScript、Vitest、jsdom、node-html-parser、iconv-lite、React 18 + Vite + react-router、Firebase（Auth / Realtime Database / Functions v2 / Hosting）、firebase-tools（`npx`）、Java 21（Emulator 用、mise）。
+**Tech Stack:** Node.js 24（mise）、TypeScript、Vitest、jsdom、node-html-parser、iconv-lite、React 18 + Vite + react-router、Firebase（Auth / Realtime Database / Functions v2 / Hosting）、firebase-tools（ルートの devDependency、`pnpm exec firebase`）、pnpm 12.15.0（mise）、Java 21（Emulator 用、mise）。
 
 **Spec:** `docs/superpowers/specs/2026-10-28-dnd-kanata-design.md`
 
 ## Global Constraints
 
+- パッケージマネージャは pnpm（mise で 12.15.0）。npm / npx は使わない。ワークスペースは `pnpm-workspace.yaml` で定義し、`package-lock.json` は置かない。
 - 元サイトへのアクセスは `https://dndjp.sakura.ne.jp/INPUT_FORM.php?ID={数字}` の GET と `https://dndjp.sakura.ne.jp/OUTPUT.php?ID={数字}` の POST のみ。他の URL は組み立てない。
 - 元サイトの文字コードは CP932（Shift_JIS）。デコード・エンコードは `iconv-lite` の `"cp932"` を使う。
 - User-Agent: `dnd-kanata (+https://github.com/oldgeese/dnd-kanata)`。
@@ -223,7 +224,7 @@ web/src/
   ```
 - DB に追加するパス: `/rateLimits/{uid}`: `{ [pushKey]: timestamp }`（Functions 専用）、`/users/{uid}/sources/{sourceId}`: `sheetId`（同じ sourceId の重複検出用、Functions 専用）。
 
-- [ ] **Step 1:** `firebase.json`（hosting: `web/dist`、SPA rewrite、functions: `functions`、`predeploy` で build、database: `database.rules.json`、emulators: auth 9099 / database 9000 / functions 5001 / hosting 5000）を作る。`.firebaserc` の project ID は利用者に聞いて入れる（既存の Blaze プロジェクト）。
+- [ ] **Step 1:** `firebase.json`（hosting: `web/dist`、SPA rewrite、functions: `functions`、`predeploy` で build、database: `database.rules.json`、emulators: auth 9099 / database 9000 / functions 5001 / hosting 5000）を作る。`.firebaserc` の default は `dnd-kanata`。Emulator でのテストは `--project demo-dnd-kanata` を付けて実行する（本番プロジェクトの課金は申請中のため、タスク 3〜8 は Emulator のみで進める）。
 - [ ] **Step 2:** `functions/build.mjs` で esbuild により `src/index.ts` を `lib/index.js` に 1 ファイルでバンドルする（`@dnd-kanata/core` を取り込み、`firebase-admin`・`firebase-functions` は external）。`functions/package.json` の `dependencies` には external のものだけを書く（デプロイ時にワークスペース参照を解決できないため）。
 - [ ] **Step 3: 失敗するテストを書く** — `importSheet.test.ts`（Database / Auth Emulator を使用。`fetch` は `vi.stubGlobal` で差し替え、fixture の CP932 バイト列を返す）
   - `parseSourceId`: `"54555"`、OUTPUT/INPUT_FORM の URL → `54555`。`"abc"`、`"https://evil.example/?ID=1"`、`"-1"`、`""` → `null`。
@@ -234,7 +235,7 @@ web/src/
   - 6 回目の呼び出し（60 秒以内）→ `resource-exhausted`。
   - 未ログイン → `unauthenticated`。
   - `fetch` に渡された URL が `https://dndjp.sakura.ne.jp/INPUT_FORM.php?ID=54555` で、User-Agent が Global Constraints の値であること。
-- [ ] **Step 4:** `npx firebase-tools emulators:exec --only auth,database "npm test -w functions"` で FAIL を確認する。
+- [ ] **Step 4:** `pnpm exec firebase emulators:exec --project demo-dnd-kanata --only auth,database "pnpm --filter functions test"` で FAIL を確認する。
 - [ ] **Step 5:** `source.ts`、`rateLimit.ts`、`importSheet.ts` を実装する（`onCall({ region: "asia-northeast1" })`）。`parseInputForm` の結果の `id` が要求 ID と一致しなければ `not-found`、`schema` に `str` が無ければ `unexpected-form`。保存は `/sheets/{id}`、`/users/{uid}/sheets/{id}`、`/users/{uid}/sources/{sourceId}` を 1 回の multi-path update で行う。
 - [ ] **Step 6:** PASS を確認する。
 - [ ] **Step 7:** Commit `feat(functions): import sheet from source site`
@@ -333,7 +334,7 @@ web/src/
   - エラーの表示文言: `invalid-argument` →「元サイトの URL か数字の ID を入力してください」、`not-found` →「元サイトにそのキャラクターが見つかりません」、`unavailable` →「元サイトに接続できませんでした。時間をおいて再度お試しください」、`resource-exhausted` →「操作が多すぎます。1 分ほど待ってから再度お試しください」。
 - [ ] **Step 2:** FAIL を確認する。
 - [ ] **Step 3:** 実装する（確認は `window.confirm` ではなく画面内のダイアログで出す）。
-- [ ] **Step 4:** PASS を確認する。Emulator（`npx firebase-tools emulators:start` と `npm run dev -w web`、`VITE_USE_EMULATORS=true`）で、ログイン → 54555 の取り込み → 一覧表示を手動で確認する。
+- [ ] **Step 4:** PASS を確認する。Emulator（`pnpm exec firebase emulators:start --project demo-dnd-kanata` と `pnpm --filter web dev`、`VITE_USE_EMULATORS=true`）で、ログイン → 54555 の取り込み → 一覧表示を手動で確認する。
 - [ ] **Step 5:** Commit `feat(web): sign-in, sheet list and import`
 
 ### Task 7: シート画面のその場編集と自動保存
@@ -400,11 +401,11 @@ web/src/
 ### Task 9: デプロイと実環境での確認
 
 **Files:**
-- Create: `README.md`（セットアップ、`npm run fixtures`、Emulator での開発、デプロイ手順）
+- Create: `README.md`（セットアップ、`pnpm fixtures`、Emulator での開発、デプロイ手順）
 - Modify: なし（設定はこれまでのタスクで完了）
 
 - [ ] **Step 1:** Firebase コンソールで Authentication の Google プロバイダを有効にし、Realtime Database を作成する（利用者が行う。リージョンは利用者に確認）。
-- [ ] **Step 2:** `npm run build` と `npx firebase-tools deploy --only database,functions,hosting` を実行する（デプロイは利用者の確認を得てから行う）。
+- [ ] **Step 2:** 課金アカウント `01AB54-E6C0FC-844B1E` を `dnd-kanata` に紐付け、Firebase を有効化する（利用者が申請した課金上限の引き上げが承認されてから。実行前に利用者に確認する）。その後 `pnpm build` と `pnpm exec firebase deploy --only database,functions,hosting` を実行する（デプロイは利用者の確認を得てから行う）。
 - [ ] **Step 3:** 本番 URL で、ログイン → 54555 を取り込み → HP を「−」で減らす → リロードで残っている → 共有をオンにしてシークレットウィンドウで `/s/{id}` が見える → 共有をオフにすると見えなくなる、を確認する。
 - [ ] **Step 4:** 利用者と一緒に、テスト用キャラクターへの書き戻しを 1 回行い、元サイトの表示に反映されていることを確認する。
 - [ ] **Step 5:** Commit `docs: README with setup and deploy steps`
