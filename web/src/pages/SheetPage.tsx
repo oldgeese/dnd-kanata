@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { SaveStatus } from "../sheet/SaveStatus";
 import { SheetView } from "../sheet/SheetView";
+import { ShareToggle } from "../sheet/ShareToggle";
+import { WriteBackDialog } from "../sheet/WriteBackDialog";
 import { useSheet } from "../sheet/useSheet";
 
 // /c/:sheetId（持ち主の編集画面）と /s/:sheetId（閲覧専用）で共通
@@ -13,6 +16,7 @@ export function SheetPage({ readOnly }: { readOnly: boolean }) {
 
 function Sheet({ sheetId, readOnly }: { sheetId: string; readOnly: boolean }) {
   const { user } = useAuth();
+  const [writingBack, setWritingBack] = useState(false);
   const { status, sheet, derived, setField, saveState, retry } = useSheet(sheetId);
 
   if (status === "loading") return <p className="center">読み込み中…</p>;
@@ -38,6 +42,14 @@ function Sheet({ sheetId, readOnly }: { sheetId: string; readOnly: boolean }) {
           </Link>
         )}
         {editable && <SaveStatus state={saveState} onRetry={retry} />}
+        {editable && (
+          <div className="owner-tools">
+            <ShareToggle sheetId={sheetId} shared={sheet.shared === true} />
+            <button type="button" onClick={() => setWritingBack(true)}>
+              元サイトに書き戻す
+            </button>
+          </div>
+        )}
         <div className="who">
           {img && <img src={img} alt="" />}
           <div>
@@ -47,6 +59,9 @@ function Sheet({ sheetId, readOnly }: { sheetId: string; readOnly: boolean }) {
         </div>
       </header>
       <SheetView fields={sheet.fields} schema={sheet.schema} derived={derived} setField={setField} readOnly={!editable} />
+      {editable && writingBack && (
+        <WriteBackDialog sheetId={sheetId} saveState={saveState} onClose={() => setWritingBack(false)} />
+      )}
     </main>
   );
 }

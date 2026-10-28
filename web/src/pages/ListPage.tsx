@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { onValue, ref } from "firebase/database";
 import { httpsCallable } from "firebase/functions";
 import { decodeRecord } from "@dnd-kanata/core/browser";
 import { useAuth } from "../auth";
+import { errorCode, RESOURCE_EXHAUSTED_MESSAGE, UNAVAILABLE_MESSAGE } from "../callableErrors";
 import { db, functions } from "../firebase";
 
 type ImportRequest = { source: string; overwrite?: boolean };
@@ -12,13 +13,12 @@ type ImportResult = { status: "created" | "overwritten" | "exists"; sheetId: str
 const ERROR_MESSAGES: Record<string, string> = {
   "invalid-argument": "元サイトの URL か数字の ID を入力してください",
   "not-found": "元サイトにそのキャラクターが見つかりません",
-  unavailable: "元サイトに接続できませんでした。時間をおいて再度お試しください",
-  "resource-exhausted": "操作が多すぎます。1 分ほど待ってから再度お試しください",
+  unavailable: UNAVAILABLE_MESSAGE,
+  "resource-exhausted": RESOURCE_EXHAUSTED_MESSAGE,
 };
 
 function errorMessage(e: unknown): string {
-  const code = String((e as { code?: unknown })?.code ?? "").replace(/^functions\//, "");
-  return ERROR_MESSAGES[code] ?? "取り込みに失敗しました。時間をおいて再度お試しください";
+  return ERROR_MESSAGES[errorCode(e)] ?? "取り込みに失敗しました。時間をおいて再度お試しください";
 }
 
 type Summary = { name?: string; cls?: string; level?: string };
@@ -91,8 +91,8 @@ export function ListPage() {
     }
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  // Enter では実行しない（ボタンのクリックだけで取り込む）
+  function onImport() {
     const src = source.trim();
     if (src) void run(src, false);
   }
@@ -103,17 +103,17 @@ export function ListPage() {
         <h1>キャラクター一覧</h1>
         <button onClick={() => void signOut()}>ログアウト</button>
       </header>
-      <form className="import" onSubmit={onSubmit}>
+      <div className="import">
         <input
           aria-label="取り込み元の URL または ID"
           placeholder="URL または数字の ID"
           value={source}
           onChange={(e) => setSource(e.target.value)}
         />
-        <button type="submit" disabled={busy}>
+        <button type="button" disabled={busy} onClick={onImport}>
           取り込む
         </button>
-      </form>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
