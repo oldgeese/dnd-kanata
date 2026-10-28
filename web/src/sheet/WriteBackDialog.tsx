@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { errorCode, RESOURCE_EXHAUSTED_MESSAGE, UNAVAILABLE_MESSAGE } from "../callableErrors";
 import { functions } from "../firebase";
@@ -51,8 +51,28 @@ export function WriteBackDialog(props: { sheetId: string; saveState: SaveState; 
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const saved = props.saveState === "saved";
+  const inFlight = useRef(false);
+  const { onClose } = props;
+
+  // 開く前のフォーカス位置を覚えておき、閉じたら戻す
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    return () => opener?.focus?.();
+  }, []);
+
+  // Esc で閉じる（通信中は閉じない）
+  useEffect(() => {
+    if (busy) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
 
   async function run(force: boolean) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setOutcome(null);
     try {
@@ -62,11 +82,14 @@ export function WriteBackDialog(props: { sheetId: string; saveState: SaveState; 
         : { sheetId: props.sheetId, password };
       const { data } = await call(req);
       const result = describe(data);
-      if (data.status === "ok") setPassword("");
+      // source-changed の確認待ちの間だけ、再実行用にパスワードを保持する
+      if (data.status !== "source-changed") setPassword("");
       setOutcome(result);
     } catch (e) {
+      setPassword("");
       setOutcome({ kind: "error", text: errorText(e) });
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -82,6 +105,7 @@ export function WriteBackDialog(props: { sheetId: string; saveState: SaveState; 
           <input
             type="password"
             autoComplete="off"
+            autoFocus
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -97,7 +121,10 @@ export function WriteBackDialog(props: { sheetId: string; saveState: SaveState; 
         <div className="actions">
           {outcome?.kind === "confirm" ? (
             <>
-              <button type="button" onClick={() => setOutcome(null)}>
+              <button type="button" onClick={() => {
+                  setPassword("");
+                  setOutcome(null);
+                }}>
                 キャンセル
               </button>
               <button type="button" disabled={busy || !saved} onClick={() => void run(true)}>
@@ -106,7 +133,7 @@ export function WriteBackDialog(props: { sheetId: string; saveState: SaveState; 
             </>
           ) : (
             <>
-              <button type="button" onClick={props.onClose}>
+              <button type="button" disabled={busy} onClick={props.onClose}>
                 閉じる
               </button>
               <button type="button" disabled={busy || !saved || !password} onClick={() => void run(false)}>

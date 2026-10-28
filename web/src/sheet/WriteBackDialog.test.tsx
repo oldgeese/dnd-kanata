@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WriteBackDialog } from "./WriteBackDialog";
@@ -115,5 +115,59 @@ describe("WriteBackDialog", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("calls writeBack only once for two synchronous clicks", async () => {
+    callable.mockReturnValue(new Promise(() => {}));
+    setup();
+    await userEvent.type(pw(), "secret");
+    const btn = screen.getByRole("button", { name: "書き戻す" });
+    act(() => {
+      btn.click();
+      btn.click();
+    });
+    expect(callable).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the password after bad-password", async () => {
+    callable.mockResolvedValue({ data: { status: "bad-password" } });
+    setup();
+    await run();
+    await screen.findByText("パスワードが違います");
+    expect(pw()).toHaveValue("");
+  });
+
+  it("clears the password after an error", async () => {
+    callable.mockRejectedValue(fail("internal"));
+    setup();
+    await run();
+    await screen.findByRole("alert");
+    expect(pw()).toHaveValue("");
+  });
+
+  it("keeps the password while awaiting confirm, clears it after cancel and after the forced rerun", async () => {
+    callable.mockResolvedValue({ data: { status: "source-changed", sourceLastUpdate: "A", currentLastUpdate: "B" } });
+    setup();
+    await run();
+    await screen.findByText(/上書きしますか/);
+    expect(pw()).toHaveValue("secret");
+    await userEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(pw()).toHaveValue("");
+  });
+
+  it("closes on Escape and focuses the password field on open", async () => {
+    setup();
+    expect(pw()).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("disables close and ignores Escape while in flight", async () => {
+    callable.mockReturnValue(new Promise(() => {}));
+    setup();
+    await run();
+    expect(screen.getByRole("button", { name: "閉じる" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
