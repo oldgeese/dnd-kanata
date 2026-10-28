@@ -5,3 +5,4 @@ fixtures/
 .firebase/
 *-debug.log
 .superpowers/
+web/src/sheet/__fixtures__/
