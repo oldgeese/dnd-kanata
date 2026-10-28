@@ -10,7 +10,8 @@ const listeners = new Map<string, { cb: (s: Snap) => void; err?: (e: Error) => v
 const update = vi.fn();
 let uid = "u1";
 
-vi.mock("../firebase", () => ({ db: {} }));
+vi.mock("../firebase", () => ({ db: {}, functions: {} }));
+vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
 vi.mock("../auth", () => ({ useAuth: () => ({ user: { uid } }) }));
 vi.mock("firebase/database", () => ({
   ref: (_db: unknown, path: string) => path,
@@ -20,6 +21,7 @@ vi.mock("firebase/database", () => ({
     return () => listeners.delete(path);
   },
   update: (...args: unknown[]) => update(...args),
+  set: vi.fn(),
   serverTimestamp: () => "TS",
 }));
 
@@ -132,6 +134,17 @@ describe("SheetPage", () => {
     expect(within(sheet).queryByRole("button", { name: /増やす/ })).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "隠密 習熟" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "所持品 2 品名" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "閲覧用リンクを有効にする" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "元サイトに書き戻す" })).not.toBeInTheDocument();
+  });
+
+  it("shows share toggle and write-back button for the owner on /c/ and opens the dialog", async () => {
+    setup();
+    expect(screen.getByRole("checkbox", { name: "閲覧用リンクを有効にする" })).toBeChecked();
+    await userEvent.click(screen.getByRole("button", { name: "元サイトに書き戻す" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("is read-only for a non-owner on /c/", () => {
@@ -139,6 +152,8 @@ describe("SheetPage", () => {
     setup();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "メモ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "閲覧用リンクを有効にする" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "元サイトに書き戻す" })).not.toBeInTheDocument();
   });
 
   it("shows not-found when the sheet cannot be read", () => {

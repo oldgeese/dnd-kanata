@@ -102,3 +102,6 @@ ul.spells li > button.ev, ul.spells li > span.ev { flex: 1; }
   ul.attacks li { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   ul.attacks .atk-name { grid-column: 1 / -1; }
 }
+.owner-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.share-link input { width: 22em; max-width: 100%; }
+.dialog label { display: block; margin: 8px 0; }
