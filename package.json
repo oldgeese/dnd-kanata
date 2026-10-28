@@ -1,0 +1,10 @@
+{
+  "name": "dnd-kanata",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/core", "functions", "web"],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "fixtures": "bash scripts/fetch-fixtures.sh"
+  }
+}
