@@ -79,4 +79,4 @@ function toHttpsError(e: SourceError): HttpsError {
   return new HttpsError("unavailable", "元サイトに接続できませんでした。");
 }
 
-export const importSheet = onCall<ImportRequest>({ region: "asia-northeast1", invoker: "public" }, importSheetHandler);
+export const importSheet = onCall<ImportRequest>({ region: "asia-northeast1" }, importSheetHandler);
