@@ -28,7 +28,7 @@ async function seed(id: string, shared: boolean) {
       sourceId: 1,
       shared,
       fields: { str: "x" },
-      schema: { a: 1 },
+      schema: { str: { kind: "text", order: 0 }, other: { kind: "text", order: 1 } },
       sourceLastUpdate: "2020-01-01",
       importedAt: 1,
       updatedAt: 1,
@@ -72,7 +72,10 @@ describe("owner", () => {
   });
   it("rejects 10001 chars", () =>
     assertFails(set(ref(owner(), "sheets/priv/fields/str"), "a".repeat(10001))));
-  it("writes a new field key", () => assertSucceeds(set(ref(owner(), "sheets/priv/fields/newKey"), "v")));
+  it("rejects a field key that is not in the schema", () =>
+    assertFails(set(ref(owner(), "sheets/priv/fields/newKey"), "v")));
+  it("rejects an object under a field key", () =>
+    assertFails(set(ref(owner(), "sheets/priv/fields/str"), { nested: "v" })));
   it("updates shared", () => assertSucceeds(set(ref(owner(), "sheets/priv/shared"), true)));
   it("rejects non-boolean shared", () => assertFails(set(ref(owner(), "sheets/priv/shared"), "yes")));
   it("updates updatedAt", () => assertSucceeds(set(ref(owner(), "sheets/priv/updatedAt"), serverTimestamp())));

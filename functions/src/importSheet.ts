@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDatabase } from "firebase-admin/database";
+import { logger } from "firebase-functions";
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 import { encodeRecord, parseInputForm } from "@dnd-kanata/core";
 import { checkRateLimit } from "./rateLimit";
@@ -18,7 +19,7 @@ export async function importSheetHandler(request: Pick<CallableRequest<ImportReq
   const db = getDatabase();
   const sourceRef = db.ref(`users/${uid}/sources/${sourceId}`);
   const existing = (await sourceRef.get()).val() as string | null;
-  if (existing && !data.overwrite) return { status: "exists", sheetId: existing };
+  if (existing && data.overwrite !== true) return { status: "exists", sheetId: existing };
 
   await checkRateLimit(uid);
 
@@ -27,7 +28,8 @@ export async function importSheetHandler(request: Pick<CallableRequest<ImportReq
     parsed = parseInputForm(await fetchInputForm(sourceId));
   } catch (e) {
     if (e instanceof SourceError) throw toHttpsError(e);
-    throw new HttpsError("unavailable", "元サイトの応答を解釈できませんでした。");
+    logger.error("importSheet: failed to parse INPUT_FORM", { sourceId, error: String(e) });
+    throw new HttpsError("unavailable", "元サイトのフォーム形式が想定と異なります。");
   }
   if (parsed.id !== String(sourceId)) throw new HttpsError("not-found", "指定の ID のキャラクターシートが見つかりません。");
   if (!parsed.schema.str) throw new HttpsError("unavailable", "元サイトのフォーム形式が想定と異なります。");
@@ -47,27 +49,33 @@ export async function importSheetHandler(request: Pick<CallableRequest<ImportReq
     return { status: "overwritten", sheetId: existing };
   }
 
+  // Claim the source first so two concurrent first imports cannot both create a sheet.
   const sheetId = randomUUID();
-  await db.ref().update({
-    [`sheets/${sheetId}`]: {
-      ownerUid: uid,
-      sourceId,
-      shared: false,
-      fields,
-      schema,
-      sourceLastUpdate: parsed.lastUpdate,
-      importedAt: now,
-      updatedAt: now,
-    },
-    [`users/${uid}/sheets/${sheetId}`]: true,
-    [`users/${uid}/sources/${sourceId}`]: sheetId,
-  });
+  const claim = await sourceRef.transaction((current: string | null) => (current === null ? sheetId : undefined));
+  if (!claim.committed) return { status: "exists", sheetId: claim.snapshot.val() as string };
+  try {
+    await db.ref().update({
+      [`sheets/${sheetId}`]: {
+        ownerUid: uid,
+        sourceId,
+        shared: false,
+        fields,
+        schema,
+        sourceLastUpdate: parsed.lastUpdate,
+        importedAt: now,
+        updatedAt: now,
+      },
+      [`users/${uid}/sheets/${sheetId}`]: true,
+    });
+  } catch (e) {
+    await sourceRef.remove().catch(() => undefined);
+    throw e;
+  }
   return { status: "created", sheetId };
 }
 
 function toHttpsError(e: SourceError): HttpsError {
   if (e.code === "not-found") return new HttpsError("not-found", "指定の ID のキャラクターシートが見つかりません。");
-  if (e.code === "unexpected-form") return new HttpsError("unavailable", "元サイトのフォーム形式が想定と異なります。");
   return new HttpsError("unavailable", "元サイトに接続できませんでした。");
 }
 

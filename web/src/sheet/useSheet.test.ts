@@ -118,6 +118,58 @@ describe("useSheet", () => {
     expect(result.current.saveState).toBe("saved");
   });
 
+  it("retries automatically after a failure, backing off", async () => {
+    update.mockRejectedValueOnce(new Error("x")).mockRejectedValueOnce(new Error("x"));
+    const { result } = setup();
+    act(() => result.current.setField("dex", "20"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(result.current.saveState).toBe("error");
+    await act(() => vi.advanceTimersByTimeAsync(1999));
+    expect(update).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(result.current.saveState).toBe("error");
+    await act(() => vi.advanceTimersByTimeAsync(3999));
+    expect(update).toHaveBeenCalledTimes(2);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(update).toHaveBeenCalledTimes(3);
+    expect(update.mock.calls[2]).toEqual(update.mock.calls[0]);
+    expect(result.current.saveState).toBe("saved");
+  });
+
+  it("reports error instead of staying in saving when update throws synchronously", async () => {
+    update.mockImplementationOnce(() => {
+      throw new Error("invalid path");
+    });
+    const { result } = setup();
+    act(() => result.current.setField("dex", "20"));
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(result.current.saveState).toBe("error");
+  });
+
+  it.each([
+    ["pagehide", () => window.dispatchEvent(new Event("pagehide"))],
+    [
+      "visibilitychange to hidden",
+      () => {
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+        document.dispatchEvent(new Event("visibilitychange"));
+      },
+    ],
+  ])("sends pending changes without waiting on %s", (_, hide) => {
+    const { result } = setup();
+    act(() => result.current.setField("dex", "20"));
+    act(hide);
+    expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/dex": "20", updatedAt: TS });
+    vi.restoreAllMocks();
+  });
+
+  it("is offline until the connection is confirmed", () => {
+    const { result } = renderHook(() => useSheet("s1"));
+    emit("sheets/s1", SHEET);
+    expect(result.current.saveState).toBe("offline");
+  });
+
   it("is offline while .info/connected is false", () => {
     const { result } = setup();
     emit(".info/connected", false);

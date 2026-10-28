@@ -44,15 +44,34 @@ export function useAuth(): AuthValue {
   return v;
 }
 
+// ポップアップを閉じた・別のポップアップで置き換えたときは、利用者の操作なのでエラーを出さない
+const CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request"]);
+
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading, signIn } = useAuth();
+  const [error, setError] = useState(false);
+
+  async function onSignIn() {
+    setError(false);
+    try {
+      await signIn();
+    } catch (e) {
+      if (!CANCELLED.has(String((e as { code?: unknown })?.code))) setError(true);
+    }
+  }
+
   if (loading) return <p className="center">読み込み中…</p>;
   if (!user) {
     return (
       <main className="center">
         <h1>dnd-kanata</h1>
         <p>D&amp;D 5e キャラクターシートの閲覧・編集</p>
-        <button onClick={() => void signIn()}>Google でログイン</button>
+        <button onClick={() => void onSignIn()}>Google でログイン</button>
+        {error && (
+          <p role="alert" className="error">
+            ログインできませんでした。時間をおいて再度お試しください
+          </p>
+        )}
       </main>
     );
   }

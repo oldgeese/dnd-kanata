@@ -14,12 +14,15 @@ import { db } from "../firebase";
 export type SaveState = "saved" | "saving" | "offline" | "error";
 
 const DEBOUNCE_MS = 500;
+const RETRY_MIN_MS = 2_000;
+const RETRY_MAX_MS = 60_000;
 
 interface Pending {
   overlay: Fields; // まだ保存が確認できていないローカルの値。表示ではリモートより優先する
   dirty: Set<string>; // 次の update で送る項目
   inflight: number;
   failed: boolean;
+  retryMs: number; // 失敗時の自動再試行までの待ち時間。失敗が続くたびに倍にする
   timer: ReturnType<typeof setTimeout> | undefined;
   mounted: boolean;
 }
@@ -34,9 +37,10 @@ export function useSheet(sheetId: string): {
 } {
   const [remote, setRemote] = useState<Sheet | null>(null);
   const [status, setStatus] = useState<"loading" | "not-found" | "ready">("loading");
-  const [connected, setConnected] = useState(true);
+  // 接続が確認できるまではオフライン扱いにする（オフラインで開いた直後に「保存済み」と出さない）
+  const [connected, setConnected] = useState(false);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const p = useRef<Pending>({ overlay: {}, dirty: new Set(), inflight: 0, failed: false, timer: undefined, mounted: true });
+  const p = useRef<Pending>({ overlay: {}, dirty: new Set(), inflight: 0, failed: false, retryMs: RETRY_MIN_MS, timer: undefined, mounted: true });
 
   useEffect(() => {
     setStatus("loading");
@@ -74,9 +78,16 @@ export function useSheet(sheetId: string): {
     const payload: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(sent)) payload[`fields/${encodeKey(k)}`] = v;
     payload.updatedAt = serverTimestamp();
-    update(ref(db, `sheets/${sheetId}`), payload)
+    let request: Promise<void>;
+    try {
+      request = update(ref(db, `sheets/${sheetId}`), payload);
+    } catch (e) {
+      request = Promise.reject(e); // 同期的に投げられても「保存中」のまま止めない
+    }
+    request
       .then(
         () => {
+          s.retryMs = RETRY_MIN_MS;
           // Realtime Database は書き込みを即座にローカルのスナップショットへ反映するため、
           // 確定した項目は overlay から外してリモートの値に任せる（以後の他端末の変更を隠さない）
           const next = { ...s.overlay };
@@ -84,8 +95,12 @@ export function useSheet(sheetId: string): {
           s.overlay = next;
         },
         () => {
-          for (const k of Object.keys(sent)) s.dirty.add(k); // retry() で同じ内容を送り直す
+          for (const k of Object.keys(sent)) s.dirty.add(k); // 再試行で同じ内容を送り直す
           s.failed = true;
+          if (s.mounted && s.timer === undefined) {
+            s.timer = setTimeout(flush, s.retryMs);
+            s.retryMs = Math.min(s.retryMs * 2, RETRY_MAX_MS);
+          }
         },
       )
       .finally(() => {
@@ -100,6 +115,19 @@ export function useSheet(sheetId: string): {
     return () => {
       s.mounted = false;
       flush(); // 画面を離れるときに未送信の変更を送る
+    };
+  }, [flush]);
+
+  useEffect(() => {
+    // タブを閉じる・再読み込みする・裏に回すときは、待ち時間を待たずに送る
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHidden);
     };
   }, [flush]);
 

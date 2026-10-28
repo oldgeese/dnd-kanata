@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const COPIED_MS = 2000;
 import { ref, set } from "firebase/database";
 import { db } from "../firebase";
 
 export function ShareToggle({ sheetId, shared }: { sheetId: string; shared: boolean }) {
   const [error, setError] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const url = `${window.location.origin}/s/${sheetId}`;
 
   async function toggle(next: boolean) {
@@ -16,12 +18,18 @@ export function ShareToggle({ sheetId, shared }: { sheetId: string; shared: bool
     }
   }
 
+  useEffect(() => {
+    if (copyState !== "copied") return;
+    const t = setTimeout(() => setCopyState("idle"), COPIED_MS);
+    return () => clearTimeout(t);
+  }, [copyState]);
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
+      setCopyState("copied");
     } catch {
-      setCopied(false);
+      setCopyState("failed");
     }
   }
 
@@ -37,7 +45,12 @@ export function ShareToggle({ sheetId, shared }: { sheetId: string; shared: bool
           <button type="button" onClick={() => void copy()}>
             コピー
           </button>
-          {copied && <span role="status">コピーしました</span>}
+          {copyState === "copied" && <span role="status">コピーしました</span>}
+          {copyState === "failed" && (
+            <span role="alert" className="error">
+              コピーできませんでした。リンクを選択してコピーしてください
+            </span>
+          )}
         </span>
       )}
       {error && (
