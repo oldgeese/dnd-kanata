@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { onValue, ref } from "firebase/database";
 import { httpsCallable } from "firebase/functions";
@@ -91,8 +91,8 @@ export function ListPage() {
     }
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  // Enter では実行しない（ボタンのクリックだけで取り込む）
+  function onImport() {
     const src = source.trim();
     if (src) void run(src, false);
   }
@@ -103,17 +103,17 @@ export function ListPage() {
         <h1>キャラクター一覧</h1>
         <button onClick={() => void signOut()}>ログアウト</button>
       </header>
-      <form className="import" onSubmit={onSubmit}>
+      <div className="import">
         <input
           aria-label="取り込み元の URL または ID"
           placeholder="URL または数字の ID"
           value={source}
           onChange={(e) => setSource(e.target.value)}
         />
-        <button type="submit" disabled={busy}>
+        <button type="button" disabled={busy} onClick={onImport}>
           取り込む
         </button>
-      </form>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}

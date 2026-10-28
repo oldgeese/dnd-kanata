@@ -55,10 +55,9 @@ export function WriteBackDialog(props: { sheetId: string; saveState: SaveState; 
   const { onClose } = props;
 
   // 開く前のフォーカス位置を覚えておき、閉じたら戻す
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    return () => opener?.focus?.();
-  }, []);
+  // （autoFocus より前、最初のレンダー時点の要素を取る）
+  const opener = useRef<HTMLElement | null>(document.activeElement as HTMLElement | null);
+  useEffect(() => () => opener.current?.focus?.(), []);
 
   // Esc で閉じる（通信中は閉じない）
   useEffect(() => {

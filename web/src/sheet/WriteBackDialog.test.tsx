@@ -170,4 +170,10 @@ describe("WriteBackDialog", () => {
     await userEvent.keyboard("{Escape}");
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("does not run on Enter in the password field", async () => {
+    setup();
+    await userEvent.type(pw(), "secret{Enter}");
+    expect(callable).not.toHaveBeenCalled();
+  });
 });

@@ -60,6 +60,15 @@ describe("ListPage", () => {
     expect(screen.getByRole("link", { name: /ミナ/ })).toHaveAttribute("href", "/c/b2");
   });
 
+  it("does not import on Enter, only on button click", async () => {
+    callable.mockResolvedValue({ data: { status: "created", sheetId: "n1" } });
+    setup();
+    await userEvent.type(screen.getByLabelText("取り込み元の URL または ID"), "54555{Enter}");
+    expect(callable).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "取り込む" }));
+    expect(callable).toHaveBeenCalledTimes(1);
+  });
+
   it("imports and navigates on created", async () => {
     callable.mockResolvedValue({ data: { status: "created", sheetId: "n1" } });
     setup();

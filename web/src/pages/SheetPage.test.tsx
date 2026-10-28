@@ -145,6 +145,7 @@ describe("SheetPage", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "元サイトに書き戻す" })).toHaveFocus();
   });
 
   it("is read-only for a non-owner on /c/", () => {
