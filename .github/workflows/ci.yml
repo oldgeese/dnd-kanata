@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      # テスト用フィクスチャは取得元サイトへの負荷を避けるためキャッシュし、ミス時のみ取得する
+      - name: Cache fixtures
+        id: fixtures-cache
+        uses: actions/cache@v4
+        with:
+          path: fixtures
+          key: source-fixtures-v1
+      - name: Fetch fixtures
+        if: steps.fixtures-cache.outputs.cache-hit != 'true'
+        run: pnpm fixtures
+      - run: pnpm test

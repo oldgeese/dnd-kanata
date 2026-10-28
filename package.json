@@ -5,7 +5,9 @@
   "packageManager": "pnpm@12.15.0",
   "scripts": {
     "test": "pnpm -r --if-present test",
-    "fixtures": "bash scripts/fetch-fixtures.sh"
+    "fixtures": "bash scripts/fetch-fixtures.sh",
+    "deploy:dev": "pnpm --filter web build:dev && firebase deploy --project dev --only database,functions,hosting",
+    "deploy:prod": "pnpm --filter web build:prod && firebase deploy --project prod --only database,functions,hosting"
   },
   "devDependencies": {
     "firebase-tools": "^15.34.1"

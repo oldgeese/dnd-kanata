@@ -1,0 +1,43 @@
+name: Deploy (prod)
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: jdx/mise-action@v2
+      - run: pnpm install --frozen-lockfile
+      # テスト用フィクスチャは取得元サイトへの負荷を避けるためキャッシュし、ミス時のみ取得する
+      - name: Cache fixtures
+        id: fixtures-cache
+        uses: actions/cache@v4
+        with:
+          path: fixtures
+          key: source-fixtures-v1
+      - name: Fetch fixtures
+        if: steps.fixtures-cache.outputs.cache-hit != 'true'
+        run: pnpm fixtures
+      - run: pnpm test
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/406595656956/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@dnd-kanata.iam.gserviceaccount.com
+      # --non-interactive: CI では対話プロンプトに答えられない。
+      # --force: Functions の artifact cleanup policy 設定などの確認プロンプトを自動承認する
+      #   (副作用として、コードから削除した Functions も確認なしで削除される)。
+      - run: pnpm deploy:prod --non-interactive --force
