@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p . && vite build",
+    "build:dev": "tsc -p . && vite build --mode dev",
+    "build:prod": "tsc -p . && vite build --mode prod",
     "typecheck": "tsc -p .",
     "test": "vitest run"
   },

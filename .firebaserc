@@ -1,1 +1,7 @@
-{ "projects": { "default": "dnd-kanata" } }
+{
+  "projects": {
+    "default": "dnd-kanata-dev",
+    "dev": "dnd-kanata-dev",
+    "prod": "dnd-kanata"
+  }
+}
