@@ -1,0 +1,144 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { onValue, ref } from "firebase/database";
+import { httpsCallable } from "firebase/functions";
+import { decodeRecord } from "@dnd-kanata/core";
+import { useAuth } from "../auth";
+import { db, functions } from "../firebase";
+
+type ImportRequest = { source: string; overwrite?: boolean };
+type ImportResult = { status: "created" | "overwritten" | "exists"; sheetId: string };
+
+const ERROR_MESSAGES: Record<string, string> = {
+  "invalid-argument": "元サイトの URL か数字の ID を入力してください",
+  "not-found": "元サイトにそのキャラクターが見つかりません",
+  unavailable: "元サイトに接続できませんでした。時間をおいて再度お試しください",
+  "resource-exhausted": "操作が多すぎます。1 分ほど待ってから再度お試しください",
+};
+
+function errorMessage(e: unknown): string {
+  const code = String((e as { code?: unknown })?.code ?? "").replace(/^functions\//, "");
+  return ERROR_MESSAGES[code] ?? "取り込みに失敗しました。時間をおいて再度お試しください";
+}
+
+type Summary = { name?: string; cls?: string; level?: string };
+
+function useSheetSummaries(uid: string): Record<string, Summary> {
+  const [ids, setIds] = useState<string[]>([]);
+  const [summaries, setSummaries] = useState<Record<string, Summary>>({});
+
+  useEffect(
+    () =>
+      onValue(ref(db, `users/${uid}/sheets`), (snap) => {
+        setIds(Object.keys((snap.val() as Record<string, true> | null) ?? {}));
+      }),
+    [uid],
+  );
+
+  const key = ids.join("\n");
+  useEffect(() => {
+    const unsubs = ids.map((id) =>
+      onValue(ref(db, `sheets/${id}/fields`), (snap) => {
+        const f = decodeRecord((snap.val() as Record<string, string> | null) ?? {});
+        setSummaries((prev) => ({
+          ...prev,
+          [id]: { name: f.char_name, cls: f.char_class, level: f.char_level },
+        }));
+      }),
+    );
+    return () => unsubs.forEach((u) => u());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return Object.fromEntries(ids.map((id) => [id, summaries[id] ?? {}]));
+}
+
+function ConfirmDialog(props: { message: string; onOk(): void; onCancel(): void }) {
+  return (
+    <div className="overlay">
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-msg">
+        <p id="confirm-msg">{props.message}</p>
+        <div className="actions">
+          <button onClick={props.onCancel}>キャンセル</button>
+          <button onClick={props.onOk}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ListPage() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const summaries = useSheetSummaries(user!.uid);
+  const [source, setSource] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  async function run(src: string, overwrite: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const call = httpsCallable<ImportRequest, ImportResult>(functions, "importSheet");
+      const { data } = await call(overwrite ? { source: src, overwrite: true } : { source: src });
+      if (data.status === "exists") setConfirming(src);
+      else navigate(`/c/${data.sheetId}`);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    const src = source.trim();
+    if (src) void run(src, false);
+  }
+
+  return (
+    <main>
+      <header className="bar">
+        <h1>キャラクター一覧</h1>
+        <button onClick={() => void signOut()}>ログアウト</button>
+      </header>
+      <form className="import" onSubmit={onSubmit}>
+        <input
+          aria-label="取り込み元の URL または ID"
+          placeholder="URL または数字の ID"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+        />
+        <button type="submit" disabled={busy}>
+          取り込む
+        </button>
+      </form>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <ul className="sheets">
+        {Object.entries(summaries).map(([id, s]) => (
+          <li key={id}>
+            <Link to={`/c/${id}`}>
+              <strong>{s.name || "（名前なし）"}</strong> {s.cls} {s.level && `Lv${s.level}`}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {confirming && (
+        <ConfirmDialog
+          message="取り込み済みです。元サイトの内容で上書きしますか？（この画面での編集内容は失われます）"
+          onCancel={() => setConfirming(null)}
+          onOk={() => {
+            const src = confirming;
+            setConfirming(null);
+            void run(src, true);
+          }}
+        />
+      )}
+    </main>
+  );
+}
