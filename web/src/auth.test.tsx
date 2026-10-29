@@ -6,11 +6,12 @@ import { AuthProvider, RequireAuth } from "./auth";
 const signInWithPopup = vi.fn();
 const sendSignInLinkToEmail = vi.fn();
 const signInWithEmailLink = vi.fn();
+let currentUser: unknown = null;
 vi.mock("./firebase", () => ({ auth: {} }));
 vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: class {},
-  onAuthStateChanged: (_auth: unknown, cb: (u: null) => void) => {
-    cb(null);
+  onAuthStateChanged: (_auth: unknown, cb: (u: unknown) => void) => {
+    cb(currentUser);
     return () => {};
   },
   signInWithPopup: (...args: unknown[]) => signInWithPopup(...args),
@@ -47,6 +48,7 @@ async function sendLink(email: string) {
 const authError = (code: string) => Object.assign(new Error(code), { code });
 
 beforeEach(() => {
+  currentUser = null;
   signInWithPopup.mockReset();
   sendSignInLinkToEmail.mockReset().mockResolvedValue(undefined);
   signInWithEmailLink.mockReset().mockResolvedValue({});
@@ -126,7 +128,35 @@ describe("email link sign-in", () => {
     await userEvent.type(screen.getByLabelText("メールアドレス"), "b@example.com");
     await userEvent.click(screen.getByRole("button", { name: "ログイン" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("リンクを送ったメールアドレスと一致しません");
+    expect(screen.getByLabelText("メールアドレス")).toHaveValue("b@example.com");
+  });
+
+  it("offers a way back to the sign-in screen from the confirmation screen", async () => {
+    window.history.replaceState(null, "", LINK);
+    renderAuth();
+    await userEvent.click(screen.getByRole("button", { name: "ログイン画面に戻る" }));
+    expect(screen.getByRole("button", { name: "Google でログイン" })).toBeInTheDocument();
+    expect(window.location.search).toBe("");
+  });
+
+  it("falls back to the confirmation screen when automatic sign-in fails", async () => {
+    signInWithEmailLink.mockRejectedValue(authError("auth/network-request-failed"));
+    localStorage.setItem(EMAIL_KEY, "a@example.com");
+    window.history.replaceState(null, "", LINK);
+    renderAuth();
+    expect(await screen.findByRole("alert")).toHaveTextContent("ログインできませんでした");
     expect(screen.getByRole("button", { name: "ログイン" })).toBeInTheDocument();
+  });
+
+  it("ignores the link when someone is already signed in", async () => {
+    currentUser = { uid: "x" };
+    localStorage.setItem(EMAIL_KEY, "a@example.com");
+    window.history.replaceState(null, "", LINK);
+    renderAuth();
+    expect(await screen.findByText("inside")).toBeInTheDocument();
+    expect(signInWithEmailLink).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
+    expect(window.location.pathname).toBe("/c/abc");
   });
 
   it("returns to the sign-in screen when the link has expired", async () => {
@@ -137,5 +167,17 @@ describe("email link sign-in", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("リンクの有効期限が切れているか、すでに使われています");
     expect(screen.getByRole("button", { name: "Google でログイン" })).toBeInTheDocument();
     expect(window.location.search).toBe("");
+  });
+
+  it("clears the expired-link message once a new link is sent", async () => {
+    signInWithEmailLink.mockRejectedValue(authError("auth/invalid-action-code"));
+    localStorage.setItem(EMAIL_KEY, "a@example.com");
+    window.history.replaceState(null, "", LINK);
+    renderAuth();
+    await screen.findByRole("alert");
+    await userEvent.type(screen.getByLabelText("メールアドレス"), "a@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "ログイン用のリンクを送る" }));
+    await screen.findByText(/にログイン用のリンクを送りました/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

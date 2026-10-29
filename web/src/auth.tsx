@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   GoogleAuthProvider,
   isSignInWithEmailLink,
@@ -16,10 +16,16 @@ interface AuthValue {
   loading: boolean;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
-  // メールリンクでのログイン。sendEmailLink で送ったリンクを開くと emailLink にその URL が入る
+  // メールリンクでのログイン。sendEmailLink で送ったリンクを開くと emailLinkPending が true になる
   sendEmailLink(email: string): Promise<void>;
-  emailLink: string | null;
-  completeEmailLink(email: string): Promise<void>;
+  emailLinkPending: boolean;
+  // 同じブラウザでリンクを開き、覚えておいたアドレスでログインしている最中
+  completingEmailLink: boolean;
+  emailLinkError: string | null;
+  // 別の端末でリンクを開いたときに、入れてもらったアドレスでログインする
+  confirmEmailLink(email: string): Promise<void>;
+  // 開いたリンクとそのエラーを捨てる
+  resetEmailLink(): void;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -49,12 +55,24 @@ const DEAD_LINK = new Set(["auth/invalid-action-code", "auth/expired-action-code
 
 const errorCode = (e: unknown) => String((e as { code?: unknown })?.code);
 
+const SIGN_IN_FAILED = "ログインできませんでした。時間をおいて再度お試しください";
+
+function emailLinkErrorMessage(code: string): string {
+  if (code === "auth/invalid-email") return "リンクを送ったメールアドレスと一致しません";
+  if (DEAD_LINK.has(code)) return "リンクの有効期限が切れているか、すでに使われています。もう一度リンクを送ってください";
+  return SIGN_IN_FAILED;
+}
+
+const linkInUrl = () => (isSignInWithEmailLink(auth, window.location.href) ? window.location.href : null);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [emailLink, setEmailLink] = useState(() =>
-    isSignInWithEmailLink(auth, window.location.href) ? window.location.href : null,
-  );
+  const [emailLink, setEmailLink] = useState(linkInUrl);
+  const [completing, setCompleting] = useState(() => linkInUrl() !== null && readEmail() !== null);
+  const [emailLinkError, setEmailLinkError] = useState<string | null>(null);
+  // StrictMode で effect が2回走っても、リンクは1回しか使えないので1回だけ試す
+  const attempted = useRef(false);
 
   useEffect(
     () =>
@@ -65,37 +83,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const value = useMemo<AuthValue>(() => {
-    // リンクの oobCode などを URL から取り除き、リロードやブックマークで使い済みのリンクを踏まないようにする
-    function finishEmailLink() {
-      writeEmail(null);
-      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
-      setEmailLink(null);
+  // リンクの oobCode などを URL から取り除き、リロードやブックマークで使い済みのリンクを踏まないようにする
+  function finishEmailLink() {
+    writeEmail(null);
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
+    setEmailLink(null);
+  }
+
+  async function completeEmailLink(link: string, email: string) {
+    setEmailLinkError(null);
+    try {
+      await signInWithEmailLink(auth, email, link);
+      finishEmailLink();
+    } catch (e) {
+      const code = errorCode(e);
+      if (DEAD_LINK.has(code)) finishEmailLink();
+      setEmailLinkError(emailLinkErrorMessage(code));
     }
-    return {
-      user,
-      loading,
-      signIn: async () => {
-        await signInWithPopup(auth, new GoogleAuthProvider());
-      },
-      signOut: () => fbSignOut(auth),
-      sendEmailLink: async (email) => {
-        await sendSignInLinkToEmail(auth, email, { url: window.location.href, handleCodeInApp: true });
-        writeEmail(email);
-      },
-      emailLink,
-      completeEmailLink: async (email) => {
-        if (!emailLink) return;
-        try {
-          await signInWithEmailLink(auth, email, emailLink);
-        } catch (e) {
-          if (DEAD_LINK.has(errorCode(e))) finishEmailLink();
-          throw e;
-        }
-        finishEmailLink();
-      },
-    };
-  }, [user, loading, emailLink]);
+  }
+
+  useEffect(() => {
+    if (loading || !emailLink || attempted.current) return;
+    attempted.current = true;
+    // すでにログインしているときは、黙って別のアカウントに切り替えないようリンクを使わない
+    if (user) {
+      finishEmailLink();
+      setCompleting(false);
+      return;
+    }
+    const email = readEmail();
+    if (email) void completeEmailLink(emailLink, email).finally(() => setCompleting(false));
+  });
+
+  const value: AuthValue = {
+    user,
+    loading,
+    signIn: async () => {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    },
+    signOut: () => fbSignOut(auth),
+    sendEmailLink: async (email) => {
+      await sendSignInLinkToEmail(auth, email, { url: window.location.href, handleCodeInApp: true });
+      writeEmail(email);
+    },
+    emailLinkPending: emailLink !== null,
+    completingEmailLink: completing,
+    emailLinkError,
+    confirmEmailLink: async (email) => {
+      if (emailLink) await completeEmailLink(emailLink, email);
+    },
+    resetEmailLink: () => {
+      setEmailLinkError(null);
+      if (emailLink) finishEmailLink();
+    },
+  };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
@@ -136,23 +177,32 @@ function EmailForm({ submitLabel, onSubmit }: { submitLabel: string; onSubmit(em
 }
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { user, loading, signIn, sendEmailLink, emailLink, completeEmailLink } = useAuth();
+  const {
+    user,
+    loading,
+    signIn,
+    sendEmailLink,
+    emailLinkPending,
+    completingEmailLink,
+    emailLinkError,
+    confirmEmailLink,
+    resetEmailLink,
+  } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
-  // 同じブラウザでリンクを開いたときは、覚えておいたアドレスでそのままログインする
-  const [completing, setCompleting] = useState(() => emailLink !== null && readEmail() !== null);
-  const started = useRef(false);
 
   async function onSignIn() {
+    resetEmailLink();
     setError(null);
     try {
       await signIn();
     } catch (e) {
-      if (!CANCELLED.has(errorCode(e))) setError("ログインできませんでした。時間をおいて再度お試しください");
+      if (!CANCELLED.has(errorCode(e))) setError(SIGN_IN_FAILED);
     }
   }
 
   async function onSendLink(email: string) {
+    resetEmailLink();
     setError(null);
     setSentTo(null);
     try {
@@ -167,50 +217,26 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     }
   }
 
-  async function onCompleteLink(email: string) {
-    setError(null);
-    setCompleting(true);
-    try {
-      await completeEmailLink(email);
-    } catch (e) {
-      const code = errorCode(e);
-      setError(
-        code === "auth/invalid-email"
-          ? "リンクを送ったメールアドレスと一致しません"
-          : DEAD_LINK.has(code)
-            ? "リンクの有効期限が切れているか、すでに使われています。もう一度リンクを送ってください"
-            : "ログインできませんでした。時間をおいて再度お試しください",
-      );
-    } finally {
-      setCompleting(false);
-    }
-  }
-
-  useEffect(() => {
-    const email = readEmail();
-    if (started.current || !emailLink || !email) return;
-    started.current = true;
-    void onCompleteLink(email);
-    // リンクを開いた直後に一度だけ試す
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const alert = error && (
+  const message = error ?? emailLinkError;
+  const alert = message && (
     <p role="alert" className="error">
-      {error}
+      {message}
     </p>
   );
 
-  if (completing) return <p className="center">ログインしています…</p>;
+  if (completingEmailLink) return <p className="center">ログインしています…</p>;
   if (loading) return <p className="center">読み込み中…</p>;
   if (user) return <>{children}</>;
-  if (emailLink) {
+  if (emailLinkPending) {
     return (
       <main className="center">
         <h1>dnd-kanata</h1>
         <p>確認のため、ログイン用のリンクを送ったメールアドレスを入力してください</p>
-        <EmailForm submitLabel="ログイン" onSubmit={onCompleteLink} />
+        <EmailForm submitLabel="ログイン" onSubmit={confirmEmailLink} />
         {alert}
+        <button className="back" onClick={resetEmailLink}>
+          ログイン画面に戻る
+        </button>
       </main>
     );
   }
