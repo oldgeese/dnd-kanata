@@ -54,6 +54,21 @@ beforeEach(() => {
 });
 
 describe("ListPage", () => {
+  it("hides the dev-only notice outside dev mode", () => {
+    setup();
+    expect(screen.queryByText(/このサイトは開発用です/)).not.toBeInTheDocument();
+  });
+
+  it("shows the dev-only notice in dev mode", () => {
+    vi.stubEnv("MODE", "dev");
+    try {
+      setup();
+      expect(screen.getByText(/このサイトは開発用です/)).toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("lists sheets with links", () => {
     setup();
     const link = screen.getByRole("link", { name: /カタナ/ });

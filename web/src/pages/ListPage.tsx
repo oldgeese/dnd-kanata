@@ -119,6 +119,10 @@ export function ListPage() {
         <h1>キャラクター一覧</h1>
         <button onClick={() => void signOut()}>ログアウト</button>
       </header>
+      {/* build:dev（vite --mode dev）でビルドした開発環境だけに出す */}
+      {import.meta.env.MODE === "dev" && (
+        <p className="dev-notice">このサイトは開発用です。データは予告なく消えることがあります。</p>
+      )}
       <div className="import">
         <input
           aria-label="取り込み元の URL または ID"
