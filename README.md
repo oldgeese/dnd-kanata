@@ -44,6 +44,13 @@ functions のテストは `firebase emulators:exec` 内で実行されるため 
 | dev | `dnd-kanata-dev` | https://dnd-kanata-dev.web.app | `dev` (`web/.env.dev`) |
 | prod | `dnd-kanata` | https://dnd-kanata.web.app | `prod` (`web/.env.prod`) |
 
+Authentication では、どちらの環境でも次のログイン方法を有効にしておきます (Firebase コンソールの Authentication > Sign-in method)。
+
+- Google
+- メール / パスワードの「メールリンク (パスワードなしでログイン)」。パスワードでのログインは使わないため無効のままにします
+
+エミュレータでは、送ったはずのログイン用リンクがエミュレータのログと Emulator UI に出力されます。
+
 Firebase の Web 設定は公開前提の値のため `web/.env.dev` / `web/.env.prod` をコミットしています。`.firebaserc` の default は誤デプロイ防止のため dev です。
 
 ## デプロイ
