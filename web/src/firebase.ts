@@ -18,7 +18,7 @@ const app = initializeApp({
 });
 
 export const auth = getAuth(app);
-auth.languageCode = "ja"; // ログイン用リンクなど、Firebase が送るメールを日本語にする
+auth.languageCode = "ja"; // ログイン用リンクなど Firebase が送るメールと、Google ログインのポップアップを日本語にする
 export const db = getDatabase(app);
 export const functions = getFunctions(app, "asia-northeast1");
 

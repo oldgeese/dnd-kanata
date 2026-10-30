@@ -49,7 +49,7 @@ Authentication では、どちらの環境でも次のログイン方法を有�
 - Google
 - メール / パスワードの「メールリンク (パスワードなしでログイン)」。パスワードでのログインは使わないため無効のままにします
 
-ログイン用のメールの件名と本文にはプロジェクトの公開名が入るので、どちらの環境でも公開名を `dnd-kanata` にしておきます (Firebase コンソールの プロジェクトの設定 > 全般)。
+ログイン用のメールの件名と本文にはプロジェクトの公開名が入るので、公開名を prod は `dnd-kanata`、dev は環境を見分けられるよう `dnd-kanata (dev)` にしておきます (Firebase コンソールの プロジェクトの設定 > 全般)。
 
 エミュレータでは、送ったはずのログイン用リンクがエミュレータのログと Emulator UI に出力されます。
 
@@ -62,6 +62,8 @@ GitHub Actions (Workload Identity Federation で認証) が自動で行います
 - `main` へマージ: テスト後、dev 環境へデプロイ (`.github/workflows/deploy-dev.yml`)
 - GitHub Release を publish: そのタグをチェックアウトし、テスト後、prod 環境へデプロイ (`.github/workflows/deploy-prod.yml`)
 - Pull Request: テストのみ (`.github/workflows/ci.yml`)
+
+公開名はコンソールの設定でデプロイには含まれません。Release を publish する前に、prod の公開名が `dnd-kanata` になっていることを確認してください ([環境](#環境) を参照)。
 
 手動でデプロイする場合は `firebase login` 済みの状態で次を実行します。
 
