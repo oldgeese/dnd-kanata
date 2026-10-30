@@ -65,6 +65,10 @@ textarea.ei { resize: vertical; min-height: 4.5em; line-height: 1.5; overflow: h
 .num .num-value { width: 4.5em; text-align: center; }
 .num .step { width: 32px; height: 32px; padding: 0; border: 1px solid #ccc; border-radius: 50%; background: #fff; font-size: 1.1rem; line-height: 1; }
 
+.hp-adjust { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 8px; margin-top: 8px; }
+.hp-adjust .item { width: 6em; }
+.hp-adjust button { min-height: 32px; padding: 4px 12px; }
+
 .dv-wrap { display: inline-flex; flex-direction: column; }
 .dv { display: inline-block; min-width: 2em; padding: 4px 6px; font-weight: 600; }
 button.dv { border: none; background: none; font: inherit; font-weight: 600; text-align: left; text-decoration: underline dotted #aaa; text-underline-offset: 3px; cursor: help; }

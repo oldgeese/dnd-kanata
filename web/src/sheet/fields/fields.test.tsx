@@ -86,30 +86,30 @@ describe("EditableTextarea", () => {
 describe("EditableNumber", () => {
   it("increments with +", async () => {
     const onChange = vi.fn();
-    render(<EditableNumber label="現在HP" value="7" onChange={onChange} />);
-    await userEvent.click(screen.getByRole("button", { name: "現在HP を 1 増やす" }));
+    render(<EditableNumber label="GP" value="7" onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "GP を 1 増やす" }));
     expect(onChange).toHaveBeenCalledWith("8");
   });
 
   it("treats an empty value as 0", async () => {
     const onChange = vi.fn();
-    render(<EditableNumber label="現在HP" value="" onChange={onChange} />);
-    await userEvent.click(screen.getByRole("button", { name: "現在HP を 1 増やす" }));
+    render(<EditableNumber label="GP" value="" onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "GP を 1 増やす" }));
     expect(onChange).toHaveBeenCalledWith("1");
   });
 
   it("decrements with −", async () => {
     const onChange = vi.fn();
-    render(<EditableNumber label="現在HP" value="7" onChange={onChange} />);
-    await userEvent.click(screen.getByRole("button", { name: "現在HP を 1 減らす" }));
+    render(<EditableNumber label="GP" value="7" onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "GP を 1 減らす" }));
     expect(onChange).toHaveBeenCalledWith("6");
   });
 
   it("can be edited directly", async () => {
     const onChange = vi.fn();
-    render(<EditableNumber label="現在HP" value="7" onChange={onChange} />);
-    await userEvent.click(screen.getByRole("button", { name: "現在HP" }));
-    const input = screen.getByRole("textbox", { name: "現在HP" });
+    render(<EditableNumber label="GP" value="7" onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "GP" }));
+    const input = screen.getByRole("textbox", { name: "GP" });
     await userEvent.clear(input);
     await userEvent.type(input, "12{Enter}");
     expect(onChange).toHaveBeenCalledWith("12");

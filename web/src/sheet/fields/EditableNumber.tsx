@@ -1,7 +1,7 @@
 import { EditableText } from "./EditableText";
 import type { EditableProps } from "./inline";
 
-// HP・所持金用。± ボタンで 1 ずつ増減する。数値でない値は 0 とみなす。
+// 所持金用。± ボタンで 1 ずつ増減する。数値でない値は 0 とみなす。
 export function EditableNumber(props: EditableProps) {
   const step = (d: number) => {
     const n = parseInt(props.value);

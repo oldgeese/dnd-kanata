@@ -44,6 +44,8 @@ const SCHEMA: Record<string, FieldDef> = {
   S_MOD_STEALTH: t(),
   max_hp: t(),
   current_hp: t(),
+  temp_hp: t(),
+  PP: t(),
   EQUIPMENT_0: t(),
   EQUIPMENTWEGIHT_0: t(),
   EQUIPMENTNUM_0: t(),
@@ -64,6 +66,8 @@ const FIELDS = {
   S_MOD_STEALTH: "",
   max_hp: "20",
   current_hp: "7",
+  temp_hp: "",
+  PP: "3",
   EQUIPMENT_0: "ロープ",
   EQUIPMENTWEGIHT_0: "",
   EQUIPMENTNUM_0: "",
@@ -155,6 +159,114 @@ describe("SheetPage", () => {
     expect(screen.queryByRole("button", { name: "メモ" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "閲覧用リンクを有効にする" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "元サイトに書き戻す" })).not.toBeInTheDocument();
+  });
+
+  describe("HP", () => {
+    const withFields = (fields: Record<string, string>) => ({ ...SHEET, fields: { ...FIELDS, ...fields } });
+    const amount = () => screen.getByRole("textbox", { name: "HP 増減量" });
+    const damage = () => screen.getByRole("button", { name: "ダメージ" });
+    const heal = () => screen.getByRole("button", { name: "回復" });
+
+    it("saves current and temp HP together when damage spills over", async () => {
+      setup("/c/s1", withFields({ current_hp: "20", temp_hp: "5" }));
+      await userEvent.type(amount(), "13");
+      await userEvent.click(damage());
+      expect(screen.getByRole("button", { name: "現在 HP" })).toHaveTextContent("12");
+      expect(screen.getByRole("button", { name: "一時 HP" })).toHaveTextContent("0");
+      expect(amount()).toHaveValue("");
+      await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/current_hp": "12", "fields/temp_hp": "0", updatedAt: "TS" }));
+    });
+
+    it("saves only temp HP when it absorbs all the damage", async () => {
+      setup("/c/s1", withFields({ current_hp: "20", temp_hp: "5" }));
+      await userEvent.type(amount(), "3");
+      await userEvent.click(damage());
+      await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/temp_hp": "2", updatedAt: "TS" }));
+    });
+
+    it("heals up to max HP without touching temp HP", async () => {
+      setup("/c/s1", withFields({ current_hp: "12", temp_hp: "5" }));
+      await userEvent.type(amount(), "13");
+      await userEvent.click(heal());
+      expect(screen.getByRole("button", { name: "現在 HP" })).toHaveTextContent("20");
+      await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/current_hp": "20", updatedAt: "TS" }));
+    });
+
+    it("works when the sheet has no temp HP field", async () => {
+      const schema: Record<string, FieldDef> = { ...SCHEMA };
+      delete schema.temp_hp;
+      const fields: Record<string, string> = { ...FIELDS };
+      delete fields.temp_hp;
+      setup("/c/s1", { ...SHEET, schema, fields });
+      await userEvent.type(amount(), "3");
+      await userEvent.click(damage());
+      await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/current_hp": "4", updatedAt: "TS" }));
+    });
+
+    it("disables the buttons until the amount is a positive integer", async () => {
+      setup();
+      expect(damage()).toBeDisabled();
+      expect(heal()).toBeDisabled();
+      await userEvent.type(amount(), "0");
+      expect(damage()).toBeDisabled();
+      await userEvent.clear(amount());
+      await userEvent.type(amount(), "3");
+      expect(damage()).toBeEnabled();
+      expect(heal()).toBeEnabled();
+    });
+
+    it("does not apply the amount on Enter", async () => {
+      setup();
+      await userEvent.type(amount(), "3{Enter}");
+      expect(screen.getByRole("button", { name: "現在 HP" })).toHaveTextContent("7");
+      expect(amount()).toHaveValue("3");
+    });
+
+    it("moves focus back to the amount after applying with the keyboard", async () => {
+      setup();
+      await userEvent.type(amount(), "3");
+      damage().focus();
+      await userEvent.keyboard("{Enter}");
+      expect(screen.getByRole("button", { name: "現在 HP" })).toHaveTextContent("4");
+      expect(amount()).toHaveFocus();
+    });
+
+    it("shows the adjuster when current HP has no value", async () => {
+      const fields: Record<string, string> = { ...FIELDS };
+      delete fields.current_hp;
+      setup("/c/s1", { ...SHEET, fields });
+      await userEvent.type(amount(), "5");
+      await userEvent.click(heal());
+      expect(screen.getByRole("button", { name: "現在 HP" })).toHaveTextContent("5");
+    });
+
+    it("shows the adjuster when current HP is an empty string", () => {
+      setup("/c/s1", withFields({ current_hp: "" }));
+      expect(amount()).toBeInTheDocument();
+    });
+
+    it("hides the adjuster when the sheet has no current HP field", () => {
+      const schema: Record<string, FieldDef> = { ...SCHEMA };
+      delete schema.current_hp;
+      setup("/c/s1", { ...SHEET, schema });
+      expect(screen.queryByRole("textbox", { name: "HP 増減量" })).not.toBeInTheDocument();
+    });
+
+    it("hides the adjuster when read-only", () => {
+      setup("/s/s1");
+      expect(screen.queryByRole("textbox", { name: "HP 増減量" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "ダメージ" })).not.toBeInTheDocument();
+    });
+
+    it("removes the ± buttons from HP but keeps them on coins", () => {
+      setup();
+      for (const hp of ["最大 HP", "現在 HP", "一時 HP"]) {
+        expect(screen.getByRole("button", { name: hp })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: `${hp} を 1 増やす` })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: `${hp} を 1 減らす` })).not.toBeInTheDocument();
+      }
+      expect(screen.getByRole("button", { name: /^PP.* を 1 増やす$/ })).toBeInTheDocument();
+    });
   });
 
   it("shows not-found when the sheet cannot be read", () => {

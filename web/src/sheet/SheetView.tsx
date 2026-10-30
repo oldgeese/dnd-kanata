@@ -7,9 +7,11 @@ import { EditableSelect } from "./fields/EditableSelect";
 import { EditableText } from "./fields/EditableText";
 import { EditableTextarea } from "./fields/EditableTextarea";
 import { ABILITIES, SKILLS, labelOf } from "./labels";
+import { HpAdjuster } from "./HpAdjuster";
 import { buildLayout, type Section } from "./layout";
 
-const NUMBER_FIELDS = new Set(["max_hp", "current_hp", "temp_hp", "PP", "GP", "EP", "SP", "CP"]);
+const NUMBER_FIELDS = new Set(["PP", "GP", "EP", "SP", "CP"]);
+const HP_FIELDS = new Set(["max_hp", "current_hp", "temp_hp"]);
 const DERIVED = new Set(DERIVED_FIELDS);
 
 interface Ctx {
@@ -39,7 +41,8 @@ function Control({ name, label }: { name: string; label?: string }) {
     case "checkbox":
       return <EditableCheckbox {...p} checkedValue={def.checkedValue ?? "on"} />;
     default:
-      return NUMBER_FIELDS.has(name) ? <EditableNumber {...p} /> : <EditableText {...p} />;
+      if (NUMBER_FIELDS.has(name)) return <EditableNumber {...p} />;
+      return <EditableText {...p} inputMode={HP_FIELDS.has(name) ? "numeric" : undefined} />;
   }
 }
 
@@ -96,7 +99,7 @@ function indices(fields: string[], re: RegExp): number[] {
 type Body = (names: string[], handled: Set<string>) => ReactNode;
 
 function useBodies(): Record<string, Body> {
-  const { fields, readOnly } = useCtx();
+  const { fields, readOnly, setField } = useCtx();
   const val = (n: string) => fields[n] ?? "";
 
   return {
@@ -230,6 +233,9 @@ function useBodies(): Record<string, Body> {
             ))}
           </div>
           <Items names={hp} />
+          {!readOnly && hp.includes("current_hp") && (
+            <HpAdjuster current={val("current_hp")} temp={val("temp_hp")} max={val("max_hp")} setField={setField} />
+          )}
           {suc.length + fail.length > 0 && (
             <div className="deathsaves">
               <span className="lbl">死亡セーヴ</span>
