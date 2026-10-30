@@ -203,6 +203,40 @@ describe("SheetPage", () => {
       await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/current_hp": "4", updatedAt: "TS" }));
     });
 
+    it("ignores temp HP left in fields when the sheet has no temp HP field", async () => {
+      const schema: Record<string, FieldDef> = { ...SCHEMA };
+      delete schema.temp_hp;
+      setup("/c/s1", { ...SHEET, schema, fields: { ...FIELDS, temp_hp: "5" } });
+      await userEvent.type(amount(), "3");
+      await userEvent.click(damage());
+      await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/current_hp": "4", updatedAt: "TS" }));
+    });
+
+    it("ignores a hidden temp HP", async () => {
+      const schema: Record<string, FieldDef> = { ...SCHEMA, temp_hp: { kind: "hidden", order: order++ } };
+      setup("/c/s1", { ...SHEET, schema, fields: { ...FIELDS, temp_hp: "5" } });
+      await userEvent.type(amount(), "3");
+      await userEvent.click(damage());
+      await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/current_hp": "4", updatedAt: "TS" }));
+    });
+
+    it.each([["current_hp"], ["temp_hp"], ["max_hp"]])("disables the buttons and says why when %s is not a number", async (name) => {
+      setup("/c/s1", withFields({ [name]: "20/30" }));
+      await userEvent.type(amount(), "3");
+      expect(damage()).toBeDisabled();
+      expect(heal()).toBeDisabled();
+      expect(screen.getByText("HP が数値でないため使えません")).toBeInTheDocument();
+    });
+
+    it("does not block on a non-numeric temp HP the sheet does not show", async () => {
+      const schema: Record<string, FieldDef> = { ...SCHEMA };
+      delete schema.temp_hp;
+      setup("/c/s1", { ...SHEET, schema, fields: { ...FIELDS, temp_hp: "abc" } });
+      await userEvent.type(amount(), "3");
+      expect(damage()).toBeEnabled();
+      expect(screen.queryByText("HP が数値でないため使えません")).not.toBeInTheDocument();
+    });
+
     it("disables the buttons until the amount is a positive integer", async () => {
       setup();
       expect(damage()).toBeDisabled();

@@ -68,6 +68,7 @@ textarea.ei { resize: vertical; min-height: 4.5em; line-height: 1.5; overflow: h
 .hp-adjust { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 8px; margin-top: 8px; }
 .hp-adjust .item { width: 6em; }
 .hp-adjust button { min-height: 32px; padding: 4px 12px; }
+.hp-adjust small { flex-basis: 100%; }
 
 .dv-wrap { display: inline-flex; flex-direction: column; }
 .dv { display: inline-block; min-width: 2em; padding: 4px 6px; font-weight: 600; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyDamage, applyHeal, parseAmount } from "./hp";
+import { applyDamage, applyHeal, isHpValue, parseAmount } from "./hp";
 
 describe("applyDamage", () => {
   it("takes damage from temp HP first and the rest from current HP", () => {
@@ -26,8 +26,12 @@ describe("applyDamage", () => {
     expect(applyDamage({ current: "", temp: "" }, 3)).toEqual({ current: "0", temp: "" });
   });
 
-  it("treats a non-numeric current HP as 0", () => {
-    expect(applyDamage({ current: "abc", temp: "" }, 3)).toEqual({ current: "0", temp: "" });
+  it("reads full-width digits", () => {
+    expect(applyDamage({ current: "２０", temp: "５" }, 13)).toEqual({ current: "12", temp: "0" });
+  });
+
+  it("does not raise a negative current HP", () => {
+    expect(applyDamage({ current: "-3", temp: "" }, 5)).toEqual({ current: "-3", temp: "" });
   });
 });
 
@@ -51,6 +55,24 @@ describe("applyHeal", () => {
   it("treats an empty current HP as 0", () => {
     expect(applyHeal({ current: "", max: "20" }, 5)).toBe("5");
     expect(applyHeal({ current: "", max: "3" }, 5)).toBe("3");
+  });
+
+  it("reads full-width digits", () => {
+    expect(applyHeal({ current: "１２", max: "２０" }, 13)).toBe("20");
+  });
+
+  it.each(["0", "-5"])("has no upper limit when max HP is %s", (max) => {
+    expect(applyHeal({ current: "5", max }, 5)).toBe("10");
+  });
+});
+
+describe("isHpValue", () => {
+  it.each(["", " ", "20", "0", "-3", "２０"])("accepts %j", (value) => {
+    expect(isHpValue(value)).toBe(true);
+  });
+
+  it.each(["20/30", "HP20", "abc", "7.5"])("rejects %j", (value) => {
+    expect(isHpValue(value)).toBe(false);
   });
 });
 

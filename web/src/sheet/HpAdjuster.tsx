@@ -1,5 +1,5 @@
 import { useRef, useState, type MouseEvent } from "react";
-import { applyDamage, applyHeal, parseAmount } from "./hp";
+import { applyDamage, applyHeal, isHpValue, parseAmount } from "./hp";
 
 // ダメージ・回復の量を入力して現在 HP・一時 HP を更新する。変わった項目だけ保存する。
 export function HpAdjuster(props: { current: string; temp: string; max: string; setField(name: string, value: string): void }) {
@@ -7,6 +7,8 @@ export function HpAdjuster(props: { current: string; temp: string; max: string; 
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const amount = parseAmount(draft);
+  const usable = [current, temp, max].every(isHpValue);
+  const disabled = amount === null || !usable;
 
   function apply(e: MouseEvent, next: { current: string; temp: string }) {
     if (next.current !== current) setField("current_hp", next.current);
@@ -22,12 +24,13 @@ export function HpAdjuster(props: { current: string; temp: string; max: string; 
         <span className="lbl">HP 増減量</span>
         <input ref={inputRef} className="ei" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value)} />
       </label>
-      <button type="button" disabled={amount === null} onClick={(e) => apply(e, applyDamage({ current, temp }, amount!))}>
+      <button type="button" disabled={disabled} onClick={(e) => apply(e, applyDamage({ current, temp }, amount!))}>
         ダメージ
       </button>
-      <button type="button" disabled={amount === null} onClick={(e) => apply(e, { current: applyHeal({ current, max }, amount!), temp })}>
+      <button type="button" disabled={disabled} onClick={(e) => apply(e, { current: applyHeal({ current, max }, amount!), temp })}>
         回復
       </button>
+      {!usable && <small>HP が数値でないため使えません</small>}
     </div>
   );
 }

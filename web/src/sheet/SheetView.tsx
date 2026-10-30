@@ -234,7 +234,13 @@ function useBodies(): Record<string, Body> {
           </div>
           <Items names={hp} />
           {!readOnly && hp.includes("current_hp") && (
-            <HpAdjuster current={val("current_hp")} temp={val("temp_hp")} max={val("max_hp")} setField={setField} />
+            // 画面に出ていない一時 HP・最大 HP は計算に使わない（スキーマにない項目への書き込みはルールで拒否される）
+            <HpAdjuster
+              current={val("current_hp")}
+              temp={hp.includes("temp_hp") ? val("temp_hp") : ""}
+              max={hp.includes("max_hp") ? val("max_hp") : ""}
+              setField={setField}
+            />
           )}
           {suc.length + fail.length > 0 && (
             <div className="deathsaves">
