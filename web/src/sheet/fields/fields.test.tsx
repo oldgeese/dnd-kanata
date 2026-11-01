@@ -321,6 +321,38 @@ describe("EditableTags", () => {
     expect(saved()).toBe("戦士");
   });
 
+  it("does not remove tags while Backspace is held down", () => {
+    render(<Harness initial="戦士 エルフ" />);
+    fireEvent.keyDown(input(), { key: "Backspace", repeat: true });
+    expect(saved()).toBe("戦士 エルフ");
+  });
+
+  it("keeps the draft when only the window loses focus", async () => {
+    render(<Harness />);
+    await userEvent.type(input(), "ダーク");
+    // ウィンドウやタブの切り替えでは blur が起きても activeElement は入力欄のまま
+    fireEvent.blur(input());
+    expect(saved()).toBe("");
+    expect(input()).toHaveValue("ダーク");
+  });
+
+  it("treats other whitespace such as NBSP as a separator", async () => {
+    render(<Harness />);
+    await userEvent.click(input());
+    await userEvent.paste("戦士 エルフ ");
+    expect(saved()).toBe("戦士 エルフ");
+    expect(input()).toHaveValue("");
+  });
+
+  it("does not create a tag from only NBSP", async () => {
+    const onChange = vi.fn();
+    render(<EditableTags label="タグ" value="" onChange={onChange} />);
+    await userEvent.click(input());
+    await userEvent.paste(" ");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("");
+  });
+
   it("does not remove a tag with Backspace while a draft remains", async () => {
     render(<Harness initial="戦士" />);
     await userEvent.type(input(), "ab{Backspace}");

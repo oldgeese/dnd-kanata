@@ -1,9 +1,9 @@
 import { useRef, useState, type ChangeEvent, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { Empty, isComposing, type EditableProps } from "./inline";
 
-// 全角スペースは単語の一部として扱う（前後のものだけ取り除く）
-const SEPARATOR = /[ \t\r\n]+/;
-const LAST_WORD = /[^ \t\r\n]*$/;
+// 全角スペース以外の空白で区切る。全角スペースは単語の一部として扱う（前後のものだけ取り除く）
+const SEPARATOR = /[^\S　]+/;
+const LAST_WORD = /[\S　]*$/;
 
 function splitWords(text: string): string[] {
   return text
@@ -65,7 +65,8 @@ export function EditableTags({ label, value, onChange, readOnly }: EditableProps
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       setDraft("");
-    } else if (ev.key === "Backspace" && draft === "" && tags.length > 0) {
+    } else if (ev.key === "Backspace" && !ev.repeat && draft === "" && tags.length > 0) {
+      // 長押しで下書きを消し終えた後に、タグまで消し続けないようにする
       ev.preventDefault();
       onChange(tags.slice(0, -1).join(" "));
     }
@@ -104,7 +105,10 @@ export function EditableTags({ label, value, onChange, readOnly }: EditableProps
           onChange={onInputChange}
           onCompositionEnd={(ev) => applyText(ev.currentTarget.value)}
           onPaste={onPaste}
-          onBlur={confirmDraft}
+          onBlur={(ev) => {
+            // ウィンドウやタブの切り替えでは確定しない（入力の続きができるように）
+            if (document.activeElement !== ev.currentTarget) confirmDraft();
+          }}
           onKeyDown={onKeyDown}
         />
       )}
