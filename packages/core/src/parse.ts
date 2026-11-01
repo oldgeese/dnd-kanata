@@ -1,7 +1,8 @@
 import { parse, type HTMLElement, type Node } from "node-html-parser";
 import type { FieldDef, Fields, FormSchema } from "./types";
 
-// 元 HTML は </option> を省略しているため option も void 扱いにして、直後のテキストをラベルとして拾う
+// 元 HTML は </option> を省略することがあるため option も void 扱いにして、直後のテキストをラベルとして拾う。
+// 書かれている </option> はノードに残らないので、ラベルの終わりは readOptions で判定する
 const VOID_TAGS = ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr", "option"];
 
 const EXCLUDED_NAMES = new Set(["ID", "UPDATE"]);
@@ -56,12 +57,13 @@ export function parseInputForm(html: string): { fields: Fields; schema: FormSche
 function readOptions(html: string, select: HTMLElement): { value: string; label: string; selected: boolean }[] {
   const out: { value: string; label: string; selected: boolean; el: HTMLElement }[] = [];
   // option is parsed as void, so </option> leaves no node: it shows up only as a gap between sibling ranges.
+  // Comments leave gaps too, and their contents are not markup.
+  const closesOption = (gap: string) => /<\/option(?:[\s/][^>]*)?>/i.test(gap.replace(/<!--[\s\S]*?-->/g, ""));
   let open = false; // whether the next text still belongs to the last option
-  let prevEnd = select.range[0];
+  let prevEnd = 0;
   const walk = (list: Node[]) => {
     for (const n of list) {
-      if (/<\/option\s*>/i.test(html.slice(prevEnd, n.range[0]))) open = false;
-      prevEnd = n.range[1];
+      if (open && closesOption(html.slice(prevEnd, n.range[0]))) open = false;
       if ("tagName" in n) {
         const el = n as HTMLElement;
         const tag = el.tagName.toLowerCase();
@@ -69,7 +71,6 @@ function readOptions(html: string, select: HTMLElement): { value: string; label:
           open = false;
           walk(el.childNodes);
           open = false;
-          prevEnd = n.range[1];
         } else if (tag === "option") {
           out.push({ value: "", label: el.text, selected: el.hasAttribute("selected"), el });
           open = true;
@@ -77,6 +78,7 @@ function readOptions(html: string, select: HTMLElement): { value: string; label:
       } else if (open) {
         out[out.length - 1].label += n.text;
       }
+      prevEnd = n.range[1];
     }
   };
   walk(select.childNodes);
