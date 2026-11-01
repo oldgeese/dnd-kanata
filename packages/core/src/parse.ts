@@ -34,7 +34,7 @@ export function parseInputForm(html: string): { fields: Fields; schema: FormSche
       value = el.text.replace(/\r\n?/g, "\n").replace(/^\n/, ""); // textarea.value と同じく改行は LF に正規化
     } else if (tag === "select") {
       def.kind = "select";
-      const opts = readOptions(el.childNodes);
+      const opts = readOptions(html, el);
       def.options = opts.map((o) => ({ value: o.value, label: o.label }));
       const chosen = opts.find((o) => o.selected) ?? opts[0];
       value = chosen ? chosen.value : "";
@@ -53,21 +53,33 @@ export function parseInputForm(html: string): { fields: Fields; schema: FormSche
   return { fields, schema, id, lastUpdate: fields.last_update ?? "" };
 }
 
-function readOptions(nodes: Node[]): { value: string; label: string; selected: boolean }[] {
+function readOptions(html: string, select: HTMLElement): { value: string; label: string; selected: boolean }[] {
   const out: { value: string; label: string; selected: boolean; el: HTMLElement }[] = [];
+  // option is parsed as void, so </option> leaves no node: it shows up only as a gap between sibling ranges.
+  let open = false; // whether the next text still belongs to the last option
+  let prevEnd = select.range[0];
   const walk = (list: Node[]) => {
     for (const n of list) {
+      if (/<\/option\s*>/i.test(html.slice(prevEnd, n.range[0]))) open = false;
+      prevEnd = n.range[1];
       if ("tagName" in n) {
         const el = n as HTMLElement;
         const tag = el.tagName.toLowerCase();
-        if (tag === "optgroup") walk(el.childNodes);
-        else if (tag === "option") out.push({ value: "", label: el.text, selected: el.hasAttribute("selected"), el });
-      } else if (out.length > 0) {
+        if (tag === "optgroup") {
+          open = false;
+          walk(el.childNodes);
+          open = false;
+          prevEnd = n.range[1];
+        } else if (tag === "option") {
+          out.push({ value: "", label: el.text, selected: el.hasAttribute("selected"), el });
+          open = true;
+        }
+      } else if (open) {
         out[out.length - 1].label += n.text;
       }
     }
   };
-  walk(nodes);
+  walk(select.childNodes);
   return out.map((o) => {
     // Like the browser's option.text: strip and collapse ASCII whitespace only (keep U+3000 and NBSP).
     const label = o.label.replace(/[\t\n\f\r ]+/g, " ").replace(/^ | $/g, "");

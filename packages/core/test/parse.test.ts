@@ -63,4 +63,25 @@ describe("parseInputForm", () => {
     expect(r.schema.s.options).toEqual(expected);
     expect(r.fields.s).toBe(select.value);
   });
+
+  test("select options match the browser: text after </option> is not part of the label", () => {
+    const html =
+      `<form name="F"><select name="s">\\n<option value="8">8:0p</option>\\n<option value="9">9:1p</option> tail` +
+      `<optgroup label="g"><option value="10">10:2p</option></optgroup> tail<option value="11">11<!-- c -->:3p</select></form>`;
+    const r = parseInputForm(html);
+    const select = new JSDOM(html).window.document.querySelector("select")!;
+    expect(r.schema.s.options).toEqual(Array.from(select.options).map((o) => ({ value: o.value, label: o.text })));
+    expect(r.schema.s.options?.[0].label).toBe("8:0p");
+  });
+
+  test("matches the browser's parse (jsdom): every select's option labels in the fixture", () => {
+    const html = loadFixture();
+    const r = parseInputForm(html);
+    const form = new JSDOM(html).window.document.forms.namedItem("F")!;
+    for (const select of Array.from(form.querySelectorAll("select"))) {
+      const expected = Array.from(select.options).map((o) => ({ value: o.value, label: o.text }));
+      expect(r.schema[select.name].options, select.name).toEqual(expected);
+    }
+    expect(r.schema.str_base.options?.[0]).toEqual({ value: "8", label: "8:0p" });
+  });
 });
