@@ -4,6 +4,7 @@ import { DerivedValue } from "./fields/DerivedValue";
 import { EditableCheckbox } from "./fields/EditableCheckbox";
 import { EditableNumber } from "./fields/EditableNumber";
 import { EditableSelect } from "./fields/EditableSelect";
+import { EditableTags } from "./fields/EditableTags";
 import { EditableText } from "./fields/EditableText";
 import { EditableTextarea } from "./fields/EditableTextarea";
 import { ABILITIES, SKILLS, labelOf } from "./labels";
@@ -41,6 +42,7 @@ function Control({ name, label }: { name: string; label?: string }) {
     case "checkbox":
       return <EditableCheckbox {...p} checkedValue={def.checkedValue ?? "on"} />;
     default:
+      if (name === "tag") return <EditableTags {...p} />;
       if (NUMBER_FIELDS.has(name)) return <EditableNumber {...p} />;
       return <EditableText {...p} inputMode={HP_FIELDS.has(name) ? "numeric" : undefined} />;
   }
@@ -58,7 +60,7 @@ function Item({ name, label }: { name: string; label?: string }) {
         <span className="lbl">{lbl}</span>
       </label>
     );
-  const wide = kind === "textarea" || name === "memo" || name === "img_url";
+  const wide = kind === "textarea" || name === "memo" || name === "img_url" || name === "tag";
   return (
     <div className={`item${wide ? " wide" : ""}`}>
       <span className="lbl">{lbl}</span>

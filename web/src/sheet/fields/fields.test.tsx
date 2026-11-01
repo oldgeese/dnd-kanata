@@ -1,10 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DerivedValue } from "./DerivedValue";
 import { EditableCheckbox } from "./EditableCheckbox";
 import { EditableNumber } from "./EditableNumber";
 import { EditableSelect } from "./EditableSelect";
+import { EditableTags } from "./EditableTags";
 import { EditableText } from "./EditableText";
 import { EditableTextarea } from "./EditableTextarea";
 
@@ -211,3 +213,195 @@ describe("readOnly", () => {
 function options() {
   return [{ value: "M", label: "中型" }];
 }
+
+describe("EditableTags", () => {
+  // 親の状態を更新する実際の使われ方に合わせ、保存される文字列を画面に出す
+  function Harness({ initial = "", readOnly }: { initial?: string; readOnly?: boolean }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <>
+        <EditableTags label="タグ" value={value} onChange={setValue} readOnly={readOnly} />
+        <output data-testid="saved">{value}</output>
+      </>
+    );
+  }
+  const saved = () => screen.getByTestId("saved").textContent;
+  const input = () => screen.getByRole("textbox", { name: "タグ" });
+  const chips = () => screen.queryAllByRole("listitem").map((li) => li.firstChild?.textContent);
+
+  it("shows each space-separated word as a tag", () => {
+    render(<Harness initial="戦士 エルフ" />);
+    expect(chips()).toEqual(["戦士", "エルフ"]);
+  });
+
+  it("confirms a word with a half-width space", async () => {
+    render(<Harness />);
+    await userEvent.type(input(), "戦士 ");
+    expect(saved()).toBe("戦士");
+    expect(input()).toHaveValue("");
+  });
+
+  it("confirms a word with Enter and joins tags with half-width spaces", async () => {
+    render(<Harness initial="戦士" />);
+    await userEvent.type(input(), "エルフ{Enter}");
+    expect(saved()).toBe("戦士 エルフ");
+    expect(input()).toHaveValue("");
+    expect(input()).toHaveFocus();
+  });
+
+  it("keeps a full-width space inside a word", async () => {
+    render(<Harness />);
+    await userEvent.type(input(), "ダーク　エルフ{Enter}");
+    expect(saved()).toBe("ダーク　エルフ");
+    expect(chips()).toEqual(["ダーク　エルフ"]);
+  });
+
+  it("trims surrounding full-width spaces", async () => {
+    render(<Harness />);
+    await userEvent.type(input(), "　戦士　{Enter}");
+    expect(saved()).toBe("戦士");
+  });
+
+  it("ignores a word of only full-width spaces", async () => {
+    const onChange = vi.fn();
+    render(<EditableTags label="タグ" value="" onChange={onChange} />);
+    await userEvent.type(input(), "　{Enter}");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("");
+  });
+
+  it("confirms the draft on blur", async () => {
+    render(<Harness />);
+    await userEvent.type(input(), "戦士");
+    await userEvent.tab();
+    expect(saved()).toBe("戦士");
+  });
+
+  it("splits pasted text into tags", async () => {
+    render(<Harness initial="戦士" />);
+    await userEvent.click(input());
+    await userEvent.paste("a b\tc\nd");
+    expect(saved()).toBe("戦士 a b c d");
+    expect(input()).toHaveValue("");
+  });
+
+  it("leaves pasted text without a separator in the draft", async () => {
+    render(<Harness />);
+    await userEvent.click(input());
+    await userEvent.paste("戦士");
+    expect(saved()).toBe("");
+    expect(input()).toHaveValue("戦士");
+  });
+
+  it("does not add a duplicate", async () => {
+    const onChange = vi.fn();
+    render(<EditableTags label="タグ" value="戦士" onChange={onChange} />);
+    await userEvent.type(input(), "戦士{Enter}");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("");
+  });
+
+  it("removes a tag with its button", async () => {
+    render(<Harness initial="戦士 エルフ 盗賊" />);
+    await userEvent.click(screen.getByRole("button", { name: "エルフ を削除" }));
+    expect(saved()).toBe("戦士 盗賊");
+  });
+
+  it("moves focus to the input after removing a tag with the keyboard", async () => {
+    render(<Harness initial="戦士" />);
+    screen.getByRole("button", { name: "戦士 を削除" }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(saved()).toBe("");
+    expect(input()).toHaveFocus();
+  });
+
+  it("removes the last tag with Backspace on an empty input", async () => {
+    render(<Harness initial="戦士 エルフ" />);
+    await userEvent.type(input(), "{Backspace}");
+    expect(saved()).toBe("戦士");
+  });
+
+  it("does not remove tags while Backspace is held down", () => {
+    render(<Harness initial="戦士 エルフ" />);
+    fireEvent.keyDown(input(), { key: "Backspace", repeat: true });
+    expect(saved()).toBe("戦士 エルフ");
+  });
+
+  it("keeps the draft when only the window loses focus", async () => {
+    render(<Harness />);
+    await userEvent.type(input(), "ダーク");
+    // ウィンドウやタブの切り替えでは blur が起きても activeElement は入力欄のまま
+    fireEvent.blur(input());
+    expect(saved()).toBe("");
+    expect(input()).toHaveValue("ダーク");
+  });
+
+  it("treats other whitespace such as NBSP as a separator", async () => {
+    render(<Harness />);
+    await userEvent.click(input());
+    await userEvent.paste("戦士 エルフ ");
+    expect(saved()).toBe("戦士 エルフ");
+    expect(input()).toHaveValue("");
+  });
+
+  it("does not create a tag from only NBSP", async () => {
+    const onChange = vi.fn();
+    render(<EditableTags label="タグ" value="" onChange={onChange} />);
+    await userEvent.click(input());
+    await userEvent.paste(" ");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("");
+  });
+
+  it("does not remove a tag with Backspace while a draft remains", async () => {
+    render(<Harness initial="戦士" />);
+    await userEvent.type(input(), "ab{Backspace}");
+    expect(saved()).toBe("戦士");
+    expect(input()).toHaveValue("a");
+  });
+
+  it("discards the draft on Escape", async () => {
+    render(<Harness initial="戦士" />);
+    await userEvent.type(input(), "zzz{Escape}");
+    expect(input()).toHaveValue("");
+    await userEvent.tab();
+    expect(saved()).toBe("戦士");
+  });
+
+  it("does not confirm on Enter during IME composition", () => {
+    render(<Harness />);
+    fireEvent.change(input(), { target: { value: "せんし" } });
+    fireEvent.keyDown(input(), { key: "Enter", keyCode: 229 });
+    expect(saved()).toBe("");
+    expect(input()).toHaveValue("せんし");
+  });
+
+  it("does not split on a half-width space until composition ends", () => {
+    render(<Harness />);
+    fireEvent.compositionStart(input());
+    fireEvent.input(input(), { target: { value: "a b" }, isComposing: true });
+    expect(saved()).toBe("");
+    expect(input()).toHaveValue("a b");
+    fireEvent.compositionEnd(input());
+    expect(saved()).toBe("a");
+    expect(input()).toHaveValue("b");
+  });
+
+  it("collapses odd spacing and duplicates for display without rewriting the value", () => {
+    render(<Harness initial=" 戦士  エルフ 戦士 " />);
+    expect(chips()).toEqual(["戦士", "エルフ"]);
+    expect(saved()).toBe(" 戦士  エルフ 戦士 ");
+  });
+
+  it("shows tags without controls when read-only", () => {
+    render(<Harness initial="戦士 エルフ" readOnly />);
+    expect(chips()).toEqual(["戦士", "エルフ"]);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("shows a faint dash when read-only and empty", () => {
+    render(<Harness readOnly />);
+    expect(screen.getByLabelText("タグ")).toHaveTextContent("—");
+  });
+});
