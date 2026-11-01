@@ -348,11 +348,19 @@ describe("EditableTags", () => {
     expect(input()).toHaveValue("");
   });
 
-  it("does not remove a tag with Backspace while a draft remains", async () => {
+  it("keeps tags when Backspace clears the draft and is pressed again", async () => {
     render(<Harness initial="戦士" />);
-    await userEvent.type(input(), "ab{Backspace}");
+    await userEvent.type(input(), "ab{Backspace}{Backspace}{Backspace}");
+    expect(input()).toHaveValue("");
     expect(saved()).toBe("戦士");
-    expect(input()).toHaveValue("a");
+  });
+
+  it("reaches the input before the remove buttons with Tab", async () => {
+    render(<Harness initial="戦士" />);
+    await userEvent.tab();
+    expect(input()).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole("button", { name: "戦士 を削除" })).toHaveFocus();
   });
 
   it("discards the draft on Escape", async () => {

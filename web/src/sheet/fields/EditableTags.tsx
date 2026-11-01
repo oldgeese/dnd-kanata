@@ -77,20 +77,8 @@ export function EditableTags({ label, value, onChange, readOnly }: EditableProps
 
   return (
     <div className="tags">
-      {tags.length > 0 && (
-        <ul className="tag-list" aria-label={label}>
-          {tags.map((t) => (
-            <li key={t} className="tag">
-              <span>{t}</span>
-              {!readOnly && (
-                <button type="button" className="tag-remove" aria-label={`${t} を削除`} onClick={(ev) => remove(t, ev)}>
-                  ×
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Tab で × ボタンより先に入力欄へ移るよう DOM では先に置き、表示は CSS で後ろにする。
+          先に × へ移ると、入力欄のつもりで打った半角スペースや Enter でタグが消えてしまう */}
       {!readOnly && (
         <input
           ref={inputRef}
@@ -107,6 +95,20 @@ export function EditableTags({ label, value, onChange, readOnly }: EditableProps
           }}
           onKeyDown={onKeyDown}
         />
+      )}
+      {tags.length > 0 && (
+        <ul className="tag-list" aria-label={label}>
+          {tags.map((t) => (
+            <li key={t} className="tag">
+              <span>{t}</span>
+              {!readOnly && (
+                <button type="button" className="tag-remove" aria-label={`${t} を削除`} onClick={(ev) => remove(t, ev)}>
+                  ×
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
