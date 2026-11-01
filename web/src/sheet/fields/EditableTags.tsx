@@ -65,10 +65,6 @@ export function EditableTags({ label, value, onChange, readOnly }: EditableProps
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       setDraft("");
-    } else if (ev.key === "Backspace" && !ev.repeat && draft === "" && tags.length > 0) {
-      // 長押しで下書きを消し終えた後に、タグまで消し続けないようにする
-      ev.preventDefault();
-      onChange(tags.slice(0, -1).join(" "));
     }
   }
 

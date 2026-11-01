@@ -315,16 +315,11 @@ describe("EditableTags", () => {
     expect(input()).toHaveFocus();
   });
 
-  it("removes the last tag with Backspace on an empty input", async () => {
+  it("does not remove a tag with Backspace on an empty input", async () => {
     render(<Harness initial="戦士 エルフ" />);
     await userEvent.type(input(), "{Backspace}");
-    expect(saved()).toBe("戦士");
-  });
-
-  it("does not remove tags while Backspace is held down", () => {
-    render(<Harness initial="戦士 エルフ" />);
-    fireEvent.keyDown(input(), { key: "Backspace", repeat: true });
     expect(saved()).toBe("戦士 エルフ");
+    expect(chips()).toEqual(["戦士", "エルフ"]);
   });
 
   it("keeps the draft when only the window loses focus", async () => {
