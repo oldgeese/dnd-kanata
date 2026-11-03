@@ -50,15 +50,23 @@ function Sheet({ sheetId, readOnly }: { sheetId: string; readOnly: boolean }) {
             </button>
           </div>
         )}
-        <div className="who">
-          {img && <img src={img} alt="" />}
-          <div>
-            <h1>{f.char_name || "（名前なし）"}</h1>
-            <p className="sub">{[f.race, f.char_class, f.char_level && `Lv${f.char_level}`].filter(Boolean).join(" / ")}</p>
-          </div>
-        </div>
       </header>
-      <SheetView fields={sheet.fields} schema={sheet.schema} derived={derived} setField={setField} readOnly={!editable} />
+      <SheetView
+        head={
+          <div className="who">
+            {img && <img src={img} alt="" />}
+            <div>
+              <h1>{f.char_name || "（名前なし）"}</h1>
+              <p className="sub">{[f.race, f.char_class, f.char_level && `Lv${f.char_level}`].filter(Boolean).join(" / ")}</p>
+            </div>
+          </div>
+        }
+        fields={sheet.fields}
+        schema={sheet.schema}
+        derived={derived}
+        setField={setField}
+        readOnly={!editable}
+      />
       {editable && writingBack && (
         <WriteBackDialog sheetId={sheetId} saveState={saveState} onClose={() => setWritingBack(false)} />
       )}

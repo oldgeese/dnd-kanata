@@ -31,7 +31,13 @@ const ro = (): FieldDef => ({ kind: "text", order: order++, readonly: true });
 const cb = (): FieldDef => ({ kind: "checkbox", order: order++, checkedValue: "on" });
 const SCHEMA: Record<string, FieldDef> = {
   char_name: t(),
+  char_class: t(),
+  char_level: t(),
+  race: t(),
   memo: t(),
+  profeciency_bonus: ro(),
+  movement: ro(),
+  base_movement: t(),
   initiative: ro(),
   ac: ro(),
   ac_base: t(),
@@ -58,7 +64,11 @@ const SCHEMA: Record<string, FieldDef> = {
 };
 const FIELDS = {
   char_name: "カタナ",
+  char_class: "",
+  char_level: "",
+  race: "",
   memo: "",
+  base_movement: "",
   dex: "14",
   ac_base: "10",
   DEX_PROF_ST_CHK: "",
@@ -300,6 +310,52 @@ describe("SheetPage", () => {
         expect(screen.queryByRole("button", { name: `${hp} を 1 減らす` })).not.toBeInTheDocument();
       }
       expect(screen.getByRole("button", { name: /^PP.* を 1 増やす$/ })).toBeInTheDocument();
+    });
+  });
+
+  describe("pinned summary", () => {
+    const summary = () => screen.getByRole("group", { name: "主要な値" });
+    const stat = (term: string) => {
+      const dt = within(summary())
+        .getAllByRole("term")
+        .find((e) => e.textContent === term);
+      return dt?.nextElementSibling?.textContent;
+    };
+
+    it("pins the name, race/class/level, key stats and section links together", () => {
+      setup("/c/s1", { ...SHEET, fields: { ...FIELDS, race: "エルフ", char_class: "ファイター", char_level: "5", base_movement: "30" } });
+      const pinned = summary().closest(".sheet-sticky")!;
+      expect(pinned).toContainElement(screen.getByRole("heading", { level: 1, name: "カタナ" }));
+      expect(pinned).toHaveTextContent("エルフ / ファイター / Lv5");
+      expect(pinned).toContainElement(screen.getByRole("navigation", { name: "セクション" }));
+      expect(stat("習熟ボーナス")).toBe("3");
+      expect(stat("移動速度")).toBe("30ft./6sq.");
+      expect(stat("イニシアチブ")).toBe("2");
+      expect(stat("AC")).toBe("12");
+      expect(stat("HP")).toBe("7 / 20");
+      // dt/dd の組が支援技術に伝わるよう、dl の役割は上書きしない
+      for (const dt of within(summary()).getAllByRole("term")) expect(dt.closest("dl")).not.toHaveAttribute("role");
+    });
+
+    it("follows HP changes", async () => {
+      setup();
+      await userEvent.type(screen.getByRole("textbox", { name: "HP 増減量" }), "3");
+      await userEvent.click(screen.getByRole("button", { name: "ダメージ" }));
+      expect(stat("HP")).toBe("4 / 20");
+    });
+
+    it("leaves out stats the sheet does not have", () => {
+      const schema: Record<string, FieldDef> = { ...SCHEMA };
+      delete schema.movement;
+      delete schema.max_hp;
+      setup("/c/s1", { ...SHEET, schema });
+      expect(stat("移動速度")).toBeUndefined();
+      expect(stat("HP")).toBe("7");
+    });
+
+    it("shows a dash for an empty value", () => {
+      setup();
+      expect(stat("習熟ボーナス")).toBe("—");
     });
   });
 
