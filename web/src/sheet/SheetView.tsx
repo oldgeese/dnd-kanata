@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { DERIVED_FIELDS, type Derived, type Fields, type FormSchema } from "@dnd-kanata/core/browser";
 import { DerivedValue } from "./fields/DerivedValue";
 import { EditableCheckbox } from "./fields/EditableCheckbox";
@@ -7,6 +7,7 @@ import { EditableSelect } from "./fields/EditableSelect";
 import { EditableTags } from "./fields/EditableTags";
 import { EditableText } from "./fields/EditableText";
 import { EditableTextarea } from "./fields/EditableTextarea";
+import { Empty } from "./fields/inline";
 import { ABILITIES, SKILLS, labelOf } from "./labels";
 import { HpAdjuster } from "./HpAdjuster";
 import { buildLayout, type Section } from "./layout";
@@ -407,27 +408,77 @@ function SectionCard({ section, body }: { section: Section; body?: Body }) {
   );
 }
 
-export function SheetView(props: Ctx) {
+export function SheetView({ head, ...props }: Ctx & { head?: ReactNode }) {
   const { schema } = props;
   const sections = useMemo(() => buildLayout(schema), [schema]);
   return (
     <SheetCtx.Provider value={props}>
-      <SheetBody sections={sections} />
+      <SheetBody sections={sections} head={head} />
     </SheetCtx.Provider>
   );
 }
 
-function SheetBody({ sections }: { sections: Section[] }) {
+// よく見る値。スクロールしても見えるよう上部に固定する（編集は各セクションで行う）
+const SUMMARY_STATS: [string, string][] = [
+  ["profeciency_bonus", "習熟ボーナス"],
+  ["movement", "移動速度"],
+  ["initiative", "イニシアチブ"],
+  ["ac", "AC"],
+];
+
+function Summary() {
+  const { schema, fields, derived } = useCtx();
+  const shown = (n: string) => n in schema && schema[n].kind !== "hidden";
+  const val = (n: string) => derived[n]?.value ?? fields[n] ?? "";
+  const stats: [string, ReactNode][] = SUMMARY_STATS.filter(([n]) => shown(n)).map(([n, l]) => [l, val(n) || <Empty />]);
+  const hp = ["current_hp", "max_hp"].filter(shown);
+  if (hp.length) stats.push(["HP", hp.map((n) => val(n) || "—").join(" / ")]);
+  if (!stats.length) return null;
+  return (
+    <dl className="summary" role="group" aria-label="主要な値">
+      {stats.map(([l, v]) => (
+        <div key={l}>
+          <dt>{l}</dt>
+          <dd>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// 固定部分の高さだけ、リンクやフォーカスでのスクロール先を下げる
+function useStickyOffset() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty("--sticky-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--sticky-h");
+    };
+  }, []);
+  return ref;
+}
+
+function SheetBody({ sections, head }: { sections: Section[]; head?: ReactNode }) {
   const bodies = useBodies();
+  const stickyRef = useStickyOffset();
   return (
     <>
-      <nav className="toc" aria-label="セクション">
-        {sections.map((s) => (
-          <a key={s.id} href={`#sec-${s.id}`}>
-            {s.title}
-          </a>
-        ))}
-      </nav>
+      <div className="sheet-sticky" ref={stickyRef}>
+        {head}
+        <Summary />
+        <nav className="toc" aria-label="セクション">
+          {sections.map((s) => (
+            <a key={s.id} href={`#sec-${s.id}`}>
+              {s.title}
+            </a>
+          ))}
+        </nav>
+      </div>
       {sections.map((s) => (
         <SectionCard key={s.id} section={s} body={bodies[s.id]} />
       ))}
