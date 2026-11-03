@@ -333,6 +333,8 @@ describe("SheetPage", () => {
       expect(stat("イニシアチブ")).toBe("2");
       expect(stat("AC")).toBe("12");
       expect(stat("HP")).toBe("7 / 20");
+      // dt/dd の組が支援技術に伝わるよう、dl の役割は上書きしない
+      for (const dt of within(summary()).getAllByRole("term")) expect(dt.closest("dl")).not.toHaveAttribute("role");
     });
 
     it("follows HP changes", async () => {

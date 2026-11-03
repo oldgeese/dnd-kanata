@@ -419,30 +419,27 @@ export function SheetView({ head, ...props }: Ctx & { head?: ReactNode }) {
 }
 
 // よく見る値。スクロールしても見えるよう上部に固定する（編集は各セクションで行う）
-const SUMMARY_STATS: [string, string][] = [
-  ["profeciency_bonus", "習熟ボーナス"],
-  ["movement", "移動速度"],
-  ["initiative", "イニシアチブ"],
-  ["ac", "AC"],
-];
+const SUMMARY_STATS = ["profeciency_bonus", "movement", "initiative", "ac"];
 
 function Summary() {
   const { schema, fields, derived } = useCtx();
   const shown = (n: string) => n in schema && schema[n].kind !== "hidden";
   const val = (n: string) => derived[n]?.value ?? fields[n] ?? "";
-  const stats: [string, ReactNode][] = SUMMARY_STATS.filter(([n]) => shown(n)).map(([n, l]) => [l, val(n) || <Empty />]);
+  const stats: [string, ReactNode][] = SUMMARY_STATS.filter(shown).map((n) => [labelOf(n), val(n) || <Empty />]);
   const hp = ["current_hp", "max_hp"].filter(shown);
   if (hp.length) stats.push(["HP", hp.map((n) => val(n) || "—").join(" / ")]);
   if (!stats.length) return null;
   return (
-    <dl className="summary" role="group" aria-label="主要な値">
-      {stats.map(([l, v]) => (
-        <div key={l}>
-          <dt>{l}</dt>
-          <dd>{v}</dd>
-        </div>
-      ))}
-    </dl>
+    <div role="group" aria-label="主要な値">
+      <dl className="summary">
+        {stats.map(([l, v]) => (
+          <div key={l}>
+            <dt>{l}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
