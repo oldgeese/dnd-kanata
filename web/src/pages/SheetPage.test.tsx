@@ -357,6 +357,30 @@ describe("SheetPage", () => {
       setup();
       expect(stat("習熟ボーナス")).toBe("—");
     });
+
+    describe("HP link", () => {
+      const hpLink = () => within(summary()).queryByRole("link", { name: /^HP/ });
+
+      it("jumps to the HP amount input", async () => {
+        setup();
+        await userEvent.click(hpLink()!);
+        expect(screen.getByRole("textbox", { name: "HP 増減量" })).toHaveFocus();
+      });
+
+      it("is not a link when read-only", () => {
+        setup("/s/s1");
+        expect(hpLink()).toBeNull();
+        expect(stat("HP")).toBe("7 / 20");
+      });
+
+      it("is not a link when the sheet has no current HP field", () => {
+        const schema: Record<string, FieldDef> = { ...SCHEMA };
+        delete schema.current_hp;
+        setup("/c/s1", { ...SHEET, schema });
+        expect(hpLink()).toBeNull();
+        expect(stat("HP")).toBe("20");
+      });
+    });
   });
 
   it("shows not-found when the sheet cannot be read", () => {
