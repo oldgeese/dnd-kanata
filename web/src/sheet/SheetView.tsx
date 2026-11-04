@@ -11,6 +11,7 @@ import { Empty } from "./fields/inline";
 import { ABILITIES, SKILLS, labelOf } from "./labels";
 import { HP_AMOUNT_ID, HpAdjuster } from "./HpAdjuster";
 import { buildLayout, type Section } from "./layout";
+import { useKeyboardTapFix } from "./useKeyboardTapFix";
 
 const NUMBER_FIELDS = new Set(["PP", "GP", "EP", "SP", "CP"]);
 const HP_FIELDS = new Set(["max_hp", "current_hp", "temp_hp"]);
@@ -483,6 +484,7 @@ function useStickyOffset() {
 function SheetBody({ sections, head }: { sections: Section[]; head?: ReactNode }) {
   const bodies = useBodies();
   const stickyRef = useStickyOffset();
+  useKeyboardTapFix();
   return (
     <>
       <div className="sheet-sticky" ref={stickyRef}>
