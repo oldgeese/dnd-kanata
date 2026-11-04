@@ -31,10 +31,13 @@ export function useKeyboardTapFix() {
       // 端では片方向のスクロールが効かないので、動ける向きに先に動かす
       const d = window.scrollY > 0 ? -1 : 1;
       window.scrollBy(0, d);
-      // 同じタイミングで戻すと打ち消し合って無視されうるので、次のフレームで戻す
+      // 同じタイミングで戻すと打ち消し合って無視されうるので、ずらした位置が一度描画されてから戻す。
+      // タイマーから予約した requestAnimationFrame は次の描画の直前に走るため、2 段重ねて次の次のフレームで戻す。
       frame = requestAnimationFrame(() => {
-        frame = undefined;
-        window.scrollBy(0, -d);
+        frame = requestAnimationFrame(() => {
+          frame = undefined;
+          window.scrollBy(0, -d);
+        });
       });
     };
     // フォーカスが移ったら指の操作の記録を消す。キーボードが開いている間のスクロールの記録が残っていると、

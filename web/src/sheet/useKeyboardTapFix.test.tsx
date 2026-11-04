@@ -8,6 +8,7 @@ const resize = () => vv.dispatchEvent(new Event("resize"));
 const settle = () => {
   vi.advanceTimersByTime(SETTLE_MS);
   vi.advanceTimersToNextFrame();
+  vi.advanceTimersToNextFrame();
 };
 
 function el<K extends "input" | "textarea" | "select" | "button">(tag: K, type?: string) {
@@ -48,6 +49,9 @@ describe("useKeyboardTapFix", () => {
     vi.advanceTimersByTime(SETTLE_MS - 1);
     expect(scrollBy).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
+    expect(scrollBy.mock.calls).toEqual([[0, 1]]);
+    vi.advanceTimersToNextFrame();
+    // ずらした位置が描画される前（同じフレーム）には戻さない
     expect(scrollBy.mock.calls).toEqual([[0, 1]]);
     vi.advanceTimersToNextFrame();
     expect(scrollBy.mock.calls).toEqual([
@@ -213,6 +217,17 @@ describe("useKeyboardTapFix", () => {
     resize();
     settle();
     expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels the restore scroll on unmount", () => {
+    const { unmount } = renderHook(() => useKeyboardTapFix());
+    openKeyboard().blur();
+    resize();
+    vi.advanceTimersByTime(SETTLE_MS);
+    vi.advanceTimersToNextFrame();
+    unmount();
+    vi.advanceTimersToNextFrame();
+    expect(scrollBy.mock.calls).toEqual([[0, 1]]);
   });
 
   it("cancels a pending nudge on unmount", () => {
