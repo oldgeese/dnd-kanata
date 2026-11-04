@@ -124,21 +124,73 @@ describe("useKeyboardTapFix", () => {
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
-  it.each(["touchmove", "wheel"])("skips the nudge when the user scrolls (%s) before it runs", (type) => {
+  it.each(["touchmove", "wheel"])("skips the nudge when the user scrolls the page (%s) before it runs", (type) => {
     renderHook(() => useKeyboardTapFix());
     openKeyboard().blur();
     resize();
+    window.dispatchEvent(new Event("touchstart"));
     window.dispatchEvent(new Event(type));
+    window.dispatchEvent(new Event("scroll"));
     resize(); // ツールバーが縮んでも補正しない
     settle();
     expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("still nudges when a touch moves without scrolling the page (swiping the section links)", () => {
+    renderHook(() => useKeyboardTapFix());
+    openKeyboard().blur();
+    resize();
+    window.dispatchEvent(new Event("touchstart"));
+    window.dispatchEvent(new Event("touchmove"));
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
+  it("still nudges when the page scrolls without a user gesture (Safari adjusting after the keyboard)", () => {
+    renderHook(() => useKeyboardTapFix());
+    openKeyboard().blur();
+    window.dispatchEvent(new Event("touchstart"));
+    window.dispatchEvent(new Event("scroll"));
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
   });
 
   it("keeps waiting when the user scrolls while the keyboard is still open", () => {
     renderHook(() => useKeyboardTapFix());
     const input = openKeyboard();
     window.dispatchEvent(new Event("touchmove"));
+    window.dispatchEvent(new Event("scroll"));
     input.blur();
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
+  it("nudges when the next field's keyboard closes after moving between fields", () => {
+    renderHook(() => useKeyboardTapFix());
+    openKeyboard().blur(); // 表示用のボタンを押した瞬間など、一瞬だけ入力欄からフォーカスが外れる
+    resize();
+    vi.advanceTimersByTime(SETTLE_MS - 1);
+    const next = openKeyboard(); // 予約した補正が走る前に次の入力欄が開く
+    settle();
+    expect(scrollBy).not.toHaveBeenCalled();
+    next.blur();
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps waiting when a text field is focused by the time the nudge runs", () => {
+    renderHook(() => useKeyboardTapFix());
+    openKeyboard().blur();
+    resize();
+    const next = el("input");
+    // focusin を出さずにフォーカスを移したのと同じ状態にする
+    vi.spyOn(document, "activeElement", "get").mockReturnValue(next);
+    settle();
+    expect(scrollBy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
     resize();
     settle();
     expect(scrollBy).toHaveBeenCalledTimes(2);

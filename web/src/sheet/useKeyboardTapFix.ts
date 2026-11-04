@@ -14,6 +14,7 @@ export function useKeyboardTapFix() {
     const vv = window.visualViewport;
     if (!vv) return;
     let armed = false; // テキスト入力欄を使ってから、まだ補正もユーザーのスクロールもしていない
+    let gesture = false; // 今のタッチ（またはホイール）で指が動いた
     let timer: ReturnType<typeof setTimeout> | undefined;
     let frame: number | undefined;
 
@@ -23,8 +24,10 @@ export function useKeyboardTapFix() {
       timer = undefined;
     };
     const nudge = () => {
+      timer = undefined;
+      // 別の入力欄に移ってキーボードが開いている。そのキーボードが閉じたときに補正するので待ち続ける
+      if (isTextEntry(document.activeElement)) return;
       disarm();
-      if (isTextEntry(document.activeElement)) return; // 別の入力欄に移ってキーボードが開いている
       // 端では片方向のスクロールが効かないので、動ける向きに先に動かす
       const d = window.scrollY > 0 ? -1 : 1;
       window.scrollBy(0, d);
@@ -35,27 +38,44 @@ export function useKeyboardTapFix() {
       });
     };
     const onFocusIn = (e: FocusEvent) => {
-      if (isTextEntry(e.target as Element)) armed = true;
+      if (!isTextEntry(e.target as Element)) return;
+      armed = true;
+      gesture = false;
+      // 入力欄から入力欄へ移る途中の表示領域の変化で予約した補正は、キーボードが開いたままなので要らない
+      clearTimeout(timer);
+      timer = undefined;
     };
     const onResize = () => {
       if (!armed || isTextEntry(document.activeElement)) return;
       clearTimeout(timer);
       timer = setTimeout(nudge, SETTLE_MS);
     };
-    // ユーザーがスクロールすればずれは直るので、補正は要らない（慣性スクロールを止めないため）
-    const onUserScroll = () => {
-      if (!isTextEntry(document.activeElement)) disarm();
+    // ユーザーがページをスクロールすればずれは直るので、補正は要らない（慣性スクロールを止めないため）。
+    // 指が動いただけ（目次の横スワイプ、タップ中の指のずれ）ではページは動かず、ずれも直らないので、
+    // 指やホイールの操作の後にページ自体がスクロールしたときだけ取りやめる。
+    const onTouchStart = () => {
+      gesture = false;
+    };
+    const onGesture = () => {
+      gesture = true;
+    };
+    const onScroll = () => {
+      if (gesture && !isTextEntry(document.activeElement)) disarm();
     };
 
     document.addEventListener("focusin", onFocusIn);
     vv.addEventListener("resize", onResize);
-    window.addEventListener("touchmove", onUserScroll, { passive: true });
-    window.addEventListener("wheel", onUserScroll, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onGesture, { passive: true });
+    window.addEventListener("wheel", onGesture, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       vv.removeEventListener("resize", onResize);
-      window.removeEventListener("touchmove", onUserScroll);
-      window.removeEventListener("wheel", onUserScroll);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onGesture);
+      window.removeEventListener("wheel", onGesture);
+      window.removeEventListener("scroll", onScroll);
       clearTimeout(timer);
       if (frame !== undefined) cancelAnimationFrame(frame);
     };
