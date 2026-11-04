@@ -1,6 +1,9 @@
 import { useRef, useState, type MouseEvent } from "react";
 import { applyDamage, applyHeal, isHpValue, parseAmount } from "./hp";
 
+// 上部固定部分の HP からジャンプする先
+export const HP_AMOUNT_ID = "hp-amount";
+
 // ダメージ・回復の量を入力して現在 HP・一時 HP を更新する。変わった項目だけ保存する。
 export function HpAdjuster(props: { current: string; temp: string; max: string; setField(name: string, value: string): void }) {
   const { current, temp, max, setField } = props;
@@ -22,7 +25,7 @@ export function HpAdjuster(props: { current: string; temp: string; max: string; 
     <div className="hp-adjust">
       <label className="item">
         <span className="lbl">HP 増減量</span>
-        <input ref={inputRef} className="ei" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value)} />
+        <input ref={inputRef} id={HP_AMOUNT_ID} className="ei" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value)} />
       </label>
       <button type="button" disabled={disabled} onClick={(e) => apply(e, applyDamage({ current, temp }, amount!))}>
         ダメージ

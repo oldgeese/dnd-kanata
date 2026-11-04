@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type MouseEvent, type ReactNode } from "react";
 import { DERIVED_FIELDS, type Derived, type Fields, type FormSchema } from "@dnd-kanata/core/browser";
 import { DerivedValue } from "./fields/DerivedValue";
 import { EditableCheckbox } from "./fields/EditableCheckbox";
@@ -9,7 +9,7 @@ import { EditableText } from "./fields/EditableText";
 import { EditableTextarea } from "./fields/EditableTextarea";
 import { Empty } from "./fields/inline";
 import { ABILITIES, SKILLS, labelOf } from "./labels";
-import { HpAdjuster } from "./HpAdjuster";
+import { HP_AMOUNT_ID, HpAdjuster } from "./HpAdjuster";
 import { buildLayout, type Section } from "./layout";
 
 const NUMBER_FIELDS = new Set(["PP", "GP", "EP", "SP", "CP"]);
@@ -422,12 +422,16 @@ export function SheetView({ head, ...props }: Ctx & { head?: ReactNode }) {
 const SUMMARY_STATS = ["profeciency_bonus", "movement", "initiative", "ac"];
 
 function Summary() {
-  const { schema, fields, derived } = useCtx();
+  const { schema, fields, derived, readOnly } = useCtx();
   const shown = (n: string) => n in schema && schema[n].kind !== "hidden";
   const val = (n: string) => derived[n]?.value ?? fields[n] ?? "";
   const stats: [string, ReactNode][] = SUMMARY_STATS.filter(shown).map((n) => [labelOf(n), val(n) || <Empty />]);
   const hp = ["current_hp", "max_hp"].filter(shown);
-  if (hp.length) stats.push(["HP", hp.map((n) => val(n) || "—").join(" / ")]);
+  if (hp.length) {
+    const text = hp.map((n) => val(n) || "—").join(" / ");
+    // 現在 HP は頻繁に書き換えるので、増減量の入力欄（HpAdjuster と同じ条件で出る）へ飛べるようにする
+    stats.push(["HP", !readOnly && shown("current_hp") ? <HpLink>{text}</HpLink> : text]);
+  }
   if (!stats.length) return null;
   return (
     <div role="group" aria-label="主要な値">
@@ -440,6 +444,22 @@ function Summary() {
         ))}
       </dl>
     </div>
+  );
+}
+
+function HpLink({ children }: { children: string }) {
+  function jump(e: MouseEvent) {
+    const input = document.getElementById(HP_AMOUNT_ID);
+    if (!input) return; // 入力欄がなければ通常のリンクとして動く
+    e.preventDefault();
+    // 入力欄だけでなく上の現在 HP なども見えるよう中央に寄せる
+    input.scrollIntoView?.({ block: "center" });
+    input.focus({ preventScroll: true });
+  }
+  return (
+    <a href={`#${HP_AMOUNT_ID}`} className="summary-jump" aria-label={`HP ${children}（増減量の入力へ移動）`} onClick={jump}>
+      {children}
+    </a>
   );
 }
 
