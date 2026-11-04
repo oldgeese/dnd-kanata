@@ -38,7 +38,7 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 .summary dd { margin: 0; font-weight: 600; white-space: nowrap; }
 /* HP の項目全体（ラベルを含む）を押せるようにする */
 .summary-jump { color: inherit; text-decoration: underline dotted #aaa; text-underline-offset: 3px; }
-.summary-jump::after { content: ""; position: absolute; inset: -4px; }
+.summary-jump::after { content: ""; position: absolute; inset: 0; }
 
 .save-status { margin-left: auto; font-size: .85rem; color: #2e7d32; display: inline-flex; align-items: center; gap: 6px; }
 .save-status.saving { color: #666; }
