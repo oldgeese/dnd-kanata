@@ -37,10 +37,15 @@ export function useKeyboardTapFix() {
         window.scrollBy(0, -d);
       });
     };
+    // フォーカスが移ったら指の操作の記録を消す。キーボードが開いている間のスクロールの記録が残っていると、
+    // Enter や「完了」で閉じたときに Safari が行うスクロールをユーザーのスクロールと取り違えるため。
+    const onFocusChange = () => {
+      gesture = false;
+    };
     const onFocusIn = (e: FocusEvent) => {
+      gesture = false;
       if (!isTextEntry(e.target as Element)) return;
       armed = true;
-      gesture = false;
       // 入力欄から入力欄へ移る途中の表示領域の変化で予約した補正は、キーボードが開いたままなので要らない
       clearTimeout(timer);
       timer = undefined;
@@ -64,6 +69,7 @@ export function useKeyboardTapFix() {
     };
 
     document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusChange);
     vv.addEventListener("resize", onResize);
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onGesture, { passive: true });
@@ -71,6 +77,7 @@ export function useKeyboardTapFix() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusChange);
       vv.removeEventListener("resize", onResize);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onGesture);

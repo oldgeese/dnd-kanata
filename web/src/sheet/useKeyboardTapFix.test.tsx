@@ -167,6 +167,25 @@ describe("useKeyboardTapFix", () => {
     expect(scrollBy).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    ["blur", (input: HTMLElement) => input.blur()],
+    ["commit that moves focus to the display button", (input: HTMLElement) => {
+      el("button").focus();
+      input.remove();
+    }],
+  ])("still nudges when the page scrolled with the keyboard open and Safari scrolls on close (%s)", (_, close) => {
+    renderHook(() => useKeyboardTapFix());
+    const input = openKeyboard();
+    window.dispatchEvent(new Event("touchstart"));
+    window.dispatchEvent(new Event("touchmove"));
+    window.dispatchEvent(new Event("scroll"));
+    close(input);
+    window.dispatchEvent(new Event("scroll")); // キーボードが閉じるときの Safari のスクロール
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
   it("nudges when the next field's keyboard closes after moving between fields", () => {
     renderHook(() => useKeyboardTapFix());
     openKeyboard().blur(); // 表示用のボタンを押した瞬間など、一瞬だけ入力欄からフォーカスが外れる
