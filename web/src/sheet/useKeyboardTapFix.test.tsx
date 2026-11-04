@@ -1,16 +1,28 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FALLBACK_MS, SETTLE_MS, useKeyboardTapFix } from "./useKeyboardTapFix";
+import { SETTLE_MS, useKeyboardTapFix } from "./useKeyboardTapFix";
 
 let vv: EventTarget;
 let scrollBy: ReturnType<typeof vi.fn>;
 const resize = () => vv.dispatchEvent(new Event("resize"));
+const settle = () => {
+  vi.advanceTimersByTime(SETTLE_MS);
+  vi.advanceTimersToNextFrame();
+};
 
-function field(tag: "input" | "textarea" = "input", type = "text") {
-  const el = document.createElement(tag);
-  if (el instanceof HTMLInputElement) el.type = type;
-  document.body.append(el);
-  return el;
+function el<K extends "input" | "textarea" | "select" | "button">(tag: K, type?: string) {
+  const e = document.createElement(tag);
+  if (type && e instanceof HTMLInputElement) e.type = type;
+  document.body.append(e);
+  return e;
+}
+
+// テキスト入力欄でキーボードを開く
+function openKeyboard(tag: "input" | "textarea" | "select" = "input") {
+  const input = el(tag);
+  input.focus();
+  resize();
+  return input;
 }
 
 beforeEach(() => {
@@ -27,11 +39,9 @@ afterEach(() => {
 });
 
 describe("useKeyboardTapFix", () => {
-  it("nudges once the viewport settles after a text field loses focus, restoring on the next frame", () => {
+  it("nudges once the viewport settles after the keyboard closes, restoring on the next frame", () => {
     renderHook(() => useKeyboardTapFix());
-    const input = field();
-    input.focus();
-    input.blur();
+    openKeyboard().blur();
     resize();
     vi.advanceTimersByTime(SETTLE_MS - 1);
     resize(); // キーボードが閉じる間に何度も来ても、止まるまで待つ
@@ -49,84 +59,97 @@ describe("useKeyboardTapFix", () => {
   it("nudges upward first when scrolled down", () => {
     vi.stubGlobal("scrollY", 100);
     renderHook(() => useKeyboardTapFix());
-    const input = field("textarea");
-    input.focus();
-    input.blur();
-    vi.advanceTimersByTime(FALLBACK_MS);
-    vi.advanceTimersToNextFrame();
+    openKeyboard("textarea").blur();
+    resize();
+    settle();
     expect(scrollBy.mock.calls).toEqual([
       [0, -1],
       [0, 1],
     ]);
   });
 
-  it("still nudges when no viewport resize comes", () => {
+  it("nudges when the focused field is removed without a blur (commit on Enter, select change)", () => {
     renderHook(() => useKeyboardTapFix());
-    const input = field();
-    input.focus();
-    input.blur();
-    vi.advanceTimersByTime(FALLBACK_MS - 1);
-    expect(scrollBy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(scrollBy).toHaveBeenCalledTimes(1);
+    const input = openKeyboard();
+    input.remove(); // jsdom は取り除いても focusout を出さない
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
   });
 
-  it("ignores viewport resizes without a preceding blur (toolbar, rotation, zoom)", () => {
+  it("nudges after a select picker closes", () => {
+    renderHook(() => useKeyboardTapFix());
+    const select = openKeyboard("select");
+    el("button").focus();
+    select.remove();
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does nothing while the keyboard stays open", () => {
+    renderHook(() => useKeyboardTapFix());
+    openKeyboard();
+    el("input").focus(); // 別の入力欄へ移る
+    resize();
+    settle();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("ignores viewport resizes when no text field was used (toolbar, rotation, zoom, desktop)", () => {
     renderHook(() => useKeyboardTapFix());
     resize();
-    vi.advanceTimersByTime(FALLBACK_MS * 2);
+    settle();
+    el("input", "checkbox").focus();
+    resize();
+    settle();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("does nothing without a viewport resize (no on-screen keyboard)", () => {
+    renderHook(() => useKeyboardTapFix());
+    openKeyboard().blur();
+    vi.advanceTimersByTime(SETTLE_MS * 10);
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
   it("ignores resizes after the nudge has run", () => {
     renderHook(() => useKeyboardTapFix());
-    const input = field();
-    input.focus();
-    input.blur();
-    vi.advanceTimersByTime(FALLBACK_MS);
-    vi.advanceTimersToNextFrame();
+    openKeyboard().blur();
+    resize();
+    settle();
     scrollBy.mockClear();
     resize();
-    vi.advanceTimersByTime(FALLBACK_MS * 2);
+    settle();
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
-  it("does nothing when focus moves to another text field", () => {
+  it.each(["touchmove", "wheel"])("skips the nudge when the user scrolls (%s) before it runs", (type) => {
     renderHook(() => useKeyboardTapFix());
-    const a = field();
-    const b = field();
-    a.focus();
-    b.focus();
-    vi.advanceTimersByTime(FALLBACK_MS * 2);
+    openKeyboard().blur();
+    resize();
+    window.dispatchEvent(new Event(type));
+    resize(); // ツールバーが縮んでも補正しない
+    settle();
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
-  it("does nothing when a text field has focus again by the time the viewport settles", () => {
+  it("keeps waiting when the user scrolls while the keyboard is still open", () => {
     renderHook(() => useKeyboardTapFix());
-    const input = field();
-    input.focus();
+    const input = openKeyboard();
+    window.dispatchEvent(new Event("touchmove"));
     input.blur();
-    input.focus();
-    vi.advanceTimersByTime(FALLBACK_MS * 2);
-    expect(scrollBy).not.toHaveBeenCalled();
-  });
-
-  it("ignores blur of controls that open no keyboard", () => {
-    renderHook(() => useKeyboardTapFix());
-    const box = field("input", "checkbox");
-    box.focus();
-    box.blur();
-    vi.advanceTimersByTime(FALLBACK_MS * 2);
-    expect(scrollBy).not.toHaveBeenCalled();
+    resize();
+    settle();
+    expect(scrollBy).toHaveBeenCalledTimes(2);
   });
 
   it("cancels a pending nudge on unmount", () => {
     const { unmount } = renderHook(() => useKeyboardTapFix());
-    const input = field();
-    input.focus();
-    input.blur();
+    openKeyboard().blur();
+    resize();
     unmount();
-    vi.advanceTimersByTime(FALLBACK_MS * 2);
+    settle();
     expect(scrollBy).not.toHaveBeenCalled();
   });
 });
