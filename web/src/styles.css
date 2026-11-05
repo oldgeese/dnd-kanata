@@ -132,7 +132,7 @@ ul.spells li > button.ev, ul.spells li > span.ev { flex: 1; }
 .spell-level .slots .ev { min-width: 2em; }
 
 /* 並べ替え: 掴む場所は行の左端。li では絶対配置にして、行の grid / flex の並びには入れない */
-li.sortable { position: relative; padding-left: 28px; }
+ul.rows li.sortable { position: relative; padding-left: 28px; } /* ul.attacks li の padding より強くする */
 .drag-handle {
   border: 0; background: none; padding: 0; margin: 0; color: #aaa; font: inherit; letter-spacing: -0.3em;
   cursor: grab; touch-action: none; /* タッチで掴んだときにページがスクロールしないようにする */
