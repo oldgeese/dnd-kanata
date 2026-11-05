@@ -74,4 +74,18 @@ describe("SortableRows", () => {
     expect(onMove).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("並べ替えをやめました。");
   });
+
+  it("落とした後は行をアニメーションさせない（要素は動かさず中身だけ入れ替えるので、動かすと一瞬違う並びに見える）", () => {
+    const onMove = vi.fn();
+    render(<List ids={[0, 1, 2]} onMove={onMove} />);
+    // jsdom では行の位置がすべて 0 なので、落とし先は先頭の行になる
+    fireEvent.pointerDown(screen.getByRole("button", { name: "行 3 を並べ替え" }), { isPrimary: true, button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(document, { isPrimary: true, clientX: 0, clientY: -20 });
+    fireEvent.pointerUp(document, { isPrimary: true });
+    expect(onMove).toHaveBeenCalledWith(2, 0);
+    for (const li of screen.getAllByRole("listitem")) {
+      expect(li.style.transition).toBe("");
+      expect(li.style.transform).toBe("");
+    }
+  });
 });

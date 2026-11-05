@@ -115,10 +115,13 @@ export function SortableRow(props: RowProps) {
 // 並べ替えられない行も同じコンポーネントで出し、掴む場所だけを出し分ける。
 function ActiveRow({ id, as: Tag, label, className, children, ctx }: RowProps & { ctx: Ctx }) {
   const sortable = ctx.ids.includes(id);
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging, isSorting } = useSortable({
     id: dndId(ctx.list, id),
     disabled: !sortable,
     attributes: { roleDescription: "並べ替え可能" },
+    // 落とした時点で中身はもう新しい並びになっている（要素は動かさない）。dnd-kit の既定どおり要素をずれた位置から
+    // 戻すと、一瞬違う並びに見えてから行がすれ違うので、落とした後は動かさずにそのまま置く。
+    animateLayoutChanges: () => false,
   });
 
   function onKeyDown(e: KeyboardEvent) {
@@ -151,7 +154,11 @@ function ActiveRow({ id, as: Tag, label, className, children, ctx }: RowProps & 
     </button>
   );
   return (
-    <Tag ref={setNodeRef} className={cls(className, "sortable", isDragging && "dragging")} style={{ transform: CSS.Translate.toString(transform), transition }}>
+    <Tag
+      ref={setNodeRef}
+      className={cls(className, "sortable", isDragging && "dragging")}
+      style={{ transform: CSS.Translate.toString(transform), transition: isSorting ? transition : undefined }}
+    >
       {children(Tag === "tr" ? <td className="drag-cell">{button}</td> : button)}
     </Tag>
   );
