@@ -105,7 +105,8 @@ button.dv { border: none; background: none; font: inherit; font-weight: 600; tex
 .deathsaves .lbl { flex-basis: 100%; }
 .deathsaves > span:not(.lbl) { display: inline-flex; align-items: center; white-space: nowrap; }
 
-table.grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* 罫線は表ではなくセルに描かせる。並べ替えで行を transform で動かすとき、collapse だと罫線が元の位置に残る（罫線は上辺だけなので見た目は変わらない） */
+table.grid { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 table.grid th { font-size: .75rem; color: #777; font-weight: normal; text-align: left; padding: 2px; }
 table.grid td { padding: 0; border-top: 1px solid #f0f0f0; }
 table.grid th[scope="row"] { color: #222; font-size: .9rem; border-top: 1px solid #f0f0f0; }
@@ -115,8 +116,6 @@ table.abilities .ev, table.abilities .dv { white-space: nowrap; min-width: 0; pa
 table.abilities td.strong .ev, table.abilities td.strong .dv { font-weight: 600; }
 /* 重量・個数（編集できるときは先頭に並べ替えの列が入るので、後ろから数える） */
 table.equipment th:nth-last-child(-n + 2) { width: 4.5em; }
-/* 並べ替えで行を transform で動かすので、罫線を表ではなくセルに描かせる（collapse のままだと罫線が元の位置に残る） */
-table.equipment { border-collapse: separate; border-spacing: 0; }
 
 ul.rows { list-style: none; margin: 0; padding: 0; }
 ul.rows li { display: flex; align-items: center; gap: 4px; border-top: 1px solid #f0f0f0; min-width: 0; }
