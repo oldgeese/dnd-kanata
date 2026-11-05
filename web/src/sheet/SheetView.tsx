@@ -11,6 +11,8 @@ import { Empty } from "./fields/inline";
 import { ABILITIES, SKILLS, labelOf } from "./labels";
 import { HP_AMOUNT_ID, HpAdjuster } from "./HpAdjuster";
 import { buildLayout, type Section } from "./layout";
+import { reorderSlots } from "./reorder";
+import { SortableRow, SortableRows, SortableScope } from "./SortableRows";
 import { useKeyboardTapFix } from "./useKeyboardTapFix";
 
 const NUMBER_FIELDS = new Set(["PP", "GP", "EP", "SP", "CP"]);
@@ -103,8 +105,12 @@ function indices(fields: string[], re: RegExp): number[] {
 type Body = (names: string[], handled: Set<string>) => ReactNode;
 
 function useBodies(): Record<string, Body> {
-  const { fields, readOnly, setField } = useCtx();
+  const { fields, schema, readOnly, setField } = useCtx();
   const val = (n: string) => fields[n] ?? "";
+  // 並べ替えた行の値をスロットへ入れ直して保存する（スキーマにない項目への書き込みはルールで拒否されるので送らない）
+  const mover = (slots: number[], cols: (slot: number) => string[]) => (from: number, to: number) => {
+    for (const [k, v] of Object.entries(reorderSlots({ slots, from, to, cols, fields }))) if (k in schema) setField(k, v);
+  };
 
   return {
     abilities(names, handled) {
@@ -275,35 +281,44 @@ function useBodies(): Record<string, Body> {
       const idx = indices(names, /^attacks_(?:[a-z]+_)?(\d+)$/);
       const cols = (i: number) => [`attacks_${i}`, `attacks_bonus_${i}`, `attacks_damege_${i}`, `attacks_type_${i}`, `attacks_memo_${i}`];
       idx.forEach((i) => cols(i).forEach((c) => handled.add(c)));
-      const rows = visibleRows(idx, (i) => cols(i).every((c) => val(c) === ""), readOnly);
+      const isEmpty = (i: number) => cols(i).every((c) => val(c) === "");
+      const rows = visibleRows(idx, isEmpty, readOnly);
+      const filled = rows.filter((i) => !isEmpty(i));
       return (
         <>
           {rows.length > 0 && (
-            <ul className="rows attacks">
-              {rows.map((i) => (
-                <li key={i}>
-                  <span className="atk-name">
-                    <Control name={`attacks_${i}`} label={`攻撃 ${i + 1} 名前`} />
-                  </span>
-                  <span>
-                    <small>命中</small>
-                    <Control name={`attacks_bonus_${i}`} label={`攻撃 ${i + 1} 命中`} />
-                  </span>
-                  <span>
-                    <small>ダメージ</small>
-                    <Control name={`attacks_damege_${i}`} label={`攻撃 ${i + 1} ダメージ`} />
-                  </span>
-                  <span>
-                    <small>種別</small>
-                    <Control name={`attacks_type_${i}`} label={`攻撃 ${i + 1} 種別`} />
-                  </span>
-                  <span className="atk-memo">
-                    <small>メモ</small>
-                    <Control name={`attacks_memo_${i}`} label={`攻撃 ${i + 1} メモ`} />
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <SortableRows ids={filled} onMove={mover(filled, cols)}>
+              <ul className="rows attacks">
+                {rows.map((i) => (
+                  <SortableRow key={i} id={i} as="li" label={`攻撃 ${i + 1}`}>
+                    {(handle) => (
+                      <>
+                        {handle}
+                        <span className="atk-name">
+                          <Control name={`attacks_${i}`} label={`攻撃 ${i + 1} 名前`} />
+                        </span>
+                        <span>
+                          <small>命中</small>
+                          <Control name={`attacks_bonus_${i}`} label={`攻撃 ${i + 1} 命中`} />
+                        </span>
+                        <span>
+                          <small>ダメージ</small>
+                          <Control name={`attacks_damege_${i}`} label={`攻撃 ${i + 1} ダメージ`} />
+                        </span>
+                        <span>
+                          <small>種別</small>
+                          <Control name={`attacks_type_${i}`} label={`攻撃 ${i + 1} 種別`} />
+                        </span>
+                        <span className="atk-memo">
+                          <small>メモ</small>
+                          <Control name={`attacks_memo_${i}`} label={`攻撃 ${i + 1} メモ`} />
+                        </span>
+                      </>
+                    )}
+                  </SortableRow>
+                ))}
+              </ul>
+            </SortableRows>
           )}
         </>
       );
@@ -315,35 +330,45 @@ function useBodies(): Record<string, Body> {
       const idx = indices(names, /^EQUIPMENT(?:WEGIHT|NUM)?_(\d+)$/);
       const cols = (i: number) => [`EQUIPMENT_${i}`, `EQUIPMENTWEGIHT_${i}`, `EQUIPMENTNUM_${i}`];
       idx.forEach((i) => cols(i).forEach((c) => handled.add(c)));
-      const rows = visibleRows(idx, (i) => cols(i).every((c) => val(c) === ""), readOnly);
+      const isEmpty = (i: number) => cols(i).every((c) => val(c) === "");
+      const rows = visibleRows(idx, isEmpty, readOnly);
+      const filled = rows.filter((i) => !isEmpty(i));
       return (
         <>
           <Items names={coins} />
           {rows.length > 0 && (
-            <table className="grid equipment">
-              <thead>
-                <tr>
-                  <th>品名</th>
-                  <th>重量</th>
-                  <th>個数</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((i) => (
-                  <tr key={i}>
-                    <td>
-                      <Control name={`EQUIPMENT_${i}`} label={`所持品 ${i + 1} 品名`} />
-                    </td>
-                    <td>
-                      <Control name={`EQUIPMENTWEGIHT_${i}`} label={`所持品 ${i + 1} 重量`} />
-                    </td>
-                    <td>
-                      <Control name={`EQUIPMENTNUM_${i}`} label={`所持品 ${i + 1} 個数`} />
-                    </td>
+            <SortableRows ids={filled} onMove={mover(filled, cols)}>
+              <table className="grid equipment">
+                <thead>
+                  <tr>
+                    {!readOnly && <th className="drag-cell" />}
+                    <th>品名</th>
+                    <th>重量</th>
+                    <th>個数</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map((i) => (
+                    <SortableRow key={i} id={i} as="tr" label={`所持品 ${i + 1}`}>
+                      {(handle) => (
+                        <>
+                          {handle}
+                          <td>
+                            <Control name={`EQUIPMENT_${i}`} label={`所持品 ${i + 1} 品名`} />
+                          </td>
+                          <td>
+                            <Control name={`EQUIPMENTWEGIHT_${i}`} label={`所持品 ${i + 1} 重量`} />
+                          </td>
+                          <td>
+                            <Control name={`EQUIPMENTNUM_${i}`} label={`所持品 ${i + 1} 個数`} />
+                          </td>
+                        </>
+                      )}
+                    </SortableRow>
+                  ))}
+                </tbody>
+              </table>
+            </SortableRows>
           )}
         </>
       );
@@ -357,13 +382,14 @@ function useBodies(): Record<string, Body> {
         <>
           <Items names={head} />
           {levels.map((lv) => {
-            const spells = names
-              .filter((n) => new RegExp(`^SPELLLV${lv}_(\\d+)$`).test(n))
-              .map((n) => ({ name: n, prep: `${n}_PREPEARD` }));
+            const spells = names.filter((n) => new RegExp(`^SPELLLV${lv}_(\\d+)$`).test(n)).map((n) => ({ name: n, prep: `${n}_PREPEARD` }));
             const slots = [`SPELLLV${lv}_SLOTTOTAL`, `SPELLLV${lv}_SLOTUSED`].filter((n) => names.includes(n));
             spells.forEach((s) => handled.add(s.name).add(s.prep));
             slots.forEach((n) => handled.add(n));
-            const rows = visibleRows(spells, (s) => val(s.name) === "" && val(s.prep) === "", readOnly);
+            const isEmpty = (s: { name: string; prep: string }) => val(s.name) === "" && val(s.prep) === "";
+            const rows = visibleRows(spells, isEmpty, readOnly);
+            const slotOf = (s: { name: string }) => Number(s.name.slice(s.name.lastIndexOf("_") + 1));
+            const filled = rows.filter((s) => !isEmpty(s)).map(slotOf);
             if (readOnly && !rows.length && slots.every((n) => val(n) === "")) return null;
             const title = lv === 0 ? "初級呪文" : `Lv${lv}`;
             return (
@@ -379,14 +405,21 @@ function useBodies(): Record<string, Body> {
                     </span>
                   )}
                 </h3>
-                <ul className="rows spells">
-                  {rows.map((s, i) => (
-                    <li key={s.name}>
-                      {names.includes(s.prep) && <Control name={s.prep} label={`${title} 呪文 ${i + 1} 準備`} />}
-                      <Control name={s.name} label={`${title} 呪文 ${i + 1}`} />
-                    </li>
-                  ))}
-                </ul>
+                <SortableRows ids={filled} onMove={mover(filled, (n) => [`SPELLLV${lv}_${n}`, `SPELLLV${lv}_${n}_PREPEARD`])}>
+                  <ul className="rows spells">
+                    {rows.map((s, i) => (
+                      <SortableRow key={s.name} id={slotOf(s)} as="li" label={`${title} 呪文 ${i + 1}`}>
+                        {(handle) => (
+                          <>
+                            {handle}
+                            {names.includes(s.prep) && <Control name={s.prep} label={`${title} 呪文 ${i + 1} 準備`} />}
+                            <Control name={s.name} label={`${title} 呪文 ${i + 1}`} />
+                          </>
+                        )}
+                      </SortableRow>
+                    ))}
+                  </ul>
+                </SortableRows>
               </div>
             );
           })}
@@ -483,6 +516,7 @@ function useStickyOffset() {
 
 function SheetBody({ sections, head }: { sections: Section[]; head?: ReactNode }) {
   const bodies = useBodies();
+  const { readOnly } = useCtx();
   const stickyRef = useStickyOffset();
   useKeyboardTapFix();
   return (
@@ -498,9 +532,11 @@ function SheetBody({ sections, head }: { sections: Section[]; head?: ReactNode }
           ))}
         </nav>
       </div>
-      {sections.map((s) => (
-        <SectionCard key={s.id} section={s} body={bodies[s.id]} />
-      ))}
+      <SortableScope enabled={!readOnly}>
+        {sections.map((s) => (
+          <SectionCard key={s.id} section={s} body={bodies[s.id]} />
+        ))}
+      </SortableScope>
     </>
   );
 }
