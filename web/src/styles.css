@@ -143,6 +143,19 @@ table.grid .drag-cell { width: 28px; }
 td.drag-cell .drag-handle { display: block; width: 24px; min-height: 32px; }
 .drag-handle:focus-visible { outline: 2px solid #4a7bd0; outline-offset: -2px; }
 .sortable.dragging { position: relative; z-index: 1; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
+/* Safari は表の行（tr）の影を描かないので、表ではセルごとに影を付けてつなげる。影は左右にはみ出した
+   疑似要素に付け、セルの左右の端で切り落とす（両端のセルだけ外側を残す）。こうするとセルの境目で影がぼけず、
+   隣のセルの影と切れ目なくつながる */
+tr.sortable.dragging { box-shadow: none; }
+tr.sortable.dragging > td { position: relative; background: #fff; clip-path: inset(-12px 0); }
+tr.sortable.dragging > td::before {
+  content: ""; position: absolute; inset: 0 -12px; z-index: -1; pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+}
+tr.sortable.dragging > td:first-child { clip-path: inset(-12px 0 -12px -12px); }
+tr.sortable.dragging > td:first-child::before { left: 0; }
+tr.sortable.dragging > td:last-child { clip-path: inset(-12px -12px -12px 0); }
+tr.sortable.dragging > td:last-child::before { right: 0; }
 .sortable.dragging .drag-handle { cursor: grabbing; }
 
 @media (max-width: 480px) {
