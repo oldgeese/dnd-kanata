@@ -115,6 +115,8 @@ table.abilities .ev, table.abilities .dv { white-space: nowrap; min-width: 0; pa
 table.abilities td.strong .ev, table.abilities td.strong .dv { font-weight: 600; }
 /* 重量・個数（編集できるときは先頭に並べ替えの列が入るので、後ろから数える） */
 table.equipment th:nth-last-child(-n + 2) { width: 4.5em; }
+/* 並べ替えで行を transform で動かすので、罫線を表ではなくセルに描かせる（collapse のままだと罫線が元の位置に残る） */
+table.equipment { border-collapse: separate; border-spacing: 0; }
 
 ul.rows { list-style: none; margin: 0; padding: 0; }
 ul.rows li { display: flex; align-items: center; gap: 4px; border-top: 1px solid #f0f0f0; min-width: 0; }
