@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useId, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { closestCenter, DndContext, PointerSensor, useDndMonitor, useSensor, useSensors, type CollisionDetection, type UniqueIdentifier } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -75,7 +75,10 @@ export function SortableRows(props: RowsProps) {
 function ActiveRows({ ids, onMove, children }: RowsProps) {
   const list = useId();
   const handles = useRef(new Map<number, HTMLButtonElement>()).current;
-  const keys = ids.map((i) => dndId(list, i));
+  // useSortable は items の変化を参照で判定し、変わったと見ると行のアニメーションを切る。
+  // ids は描画のたびに新しい配列で届くので、中身が変わったときだけ作り直す
+  const idsKey = ids.join(",");
+  const keys = useMemo(() => ids.map((i) => dndId(list, i)), [list, idsKey]);
   useDndMonitor({
     onDragEnd({ active, over }) {
       if (!over) return;
