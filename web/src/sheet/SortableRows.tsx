@@ -45,11 +45,18 @@ export function SortableScope({ enabled, children }: { enabled: boolean; childre
   if (!enabled) return <>{children}</>;
   return (
     <ScopeCtx.Provider value={true}>
-      <DndContext sensors={sensors} collisionDetection={sameList} accessibility={ACCESSIBILITY}>
+      <DndContext sensors={sensors} collisionDetection={sameList} accessibility={ACCESSIBILITY} onDragStart={commitEditing}>
         {children}
       </DndContext>
     </ScopeCtx.Provider>
   );
+}
+
+// 編集中の入力欄は、行の値を入れ替える前に確定させる。入力欄の下書きはスロットに結びついているので、
+// 入れ替えた後で確定すると別の行の値を上書きしてしまう（タッチで掴んだときは入力欄のフォーカスが外れないことがある）
+function commitEditing() {
+  const el = document.activeElement;
+  if (el instanceof HTMLElement && el.matches("input, textarea, select")) el.blur();
 }
 
 type RowsProps = {
@@ -94,18 +101,19 @@ type RowProps = {
 
 export function SortableRow(props: RowProps) {
   const ctx = useContext(RowsCtx);
-  if (!ctx) return <PlainRow {...props} handle={null} />;
-  // 並べ替えられない行（入力用の空の行）も、列や字下げを揃えるために場所だけ取る
-  if (!ctx.ids.includes(props.id)) return <PlainRow {...props} handle={props.as === "tr" ? <td className="drag-cell" /> : null} sortable />;
+  // 並べ替えを使うかどうかは画面ごとに決まり、行の中では変わらない
+  if (!ctx) return <props.as className={props.className}>{props.children(null)}</props.as>;
   return <ActiveRow {...props} ctx={ctx} />;
 }
 
-function PlainRow({ as: Tag, className, children, handle, sortable }: RowProps & { handle: ReactNode; sortable?: boolean }) {
-  return <Tag className={cls(className, sortable && "sortable")}>{children(handle)}</Tag>;
-}
-
+// 空の行に値が入ると並べ替えられる行に変わる。そのときに行を作り直すと入力中のフォーカスが失われるので、
+// 並べ替えられない行も同じコンポーネントで出し、掴む場所だけを出し分ける。
 function ActiveRow({ id, as: Tag, label, className, children, ctx }: RowProps & { ctx: Ctx }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: dndId(ctx.list, id) });
+  const sortable = ctx.ids.includes(id);
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: dndId(ctx.list, id),
+    disabled: !sortable,
+  });
 
   function onKeyDown(e: KeyboardEvent) {
     const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
@@ -119,7 +127,7 @@ function ActiveRow({ id, as: Tag, label, className, children, ctx }: RowProps & 
     ctx.handles.get(ctx.ids[to])?.focus();
   }
 
-  const button = (
+  const button = sortable && (
     <button
       type="button"
       className="drag-handle"

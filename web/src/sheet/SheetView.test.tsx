@@ -1,12 +1,53 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { FormSchema } from "@dnd-kanata/core/browser";
+import type { Fields, FormSchema } from "@dnd-kanata/core/browser";
 import { SheetView } from "./SheetView";
 
 const t = (order: number) => ({ kind: "text" as const, order });
 
+function attackSchema(slots: number[]): FormSchema {
+  const schema: FormSchema = {};
+  let o = 0;
+  for (const i of slots) for (const p of ["attacks", "attacks_bonus", "attacks_damege", "attacks_type", "attacks_memo"]) schema[`${p}_${i}`] = t(o++);
+  return schema;
+}
+
+// setField を受けて表示も更新する（保存の仕組みは持たない）
+function Editable({ initial, schema, onSet }: { initial: Fields; schema: FormSchema; onSet?: (name: string, value: string) => void }) {
+  const [fields, setFields] = useState(initial);
+  const setField = (name: string, value: string) => {
+    onSet?.(name, value);
+    setFields((f) => ({ ...f, [name]: value }));
+  };
+  return <SheetView fields={fields} schema={schema} derived={{}} setField={setField} readOnly={false} />;
+}
+
 describe("SheetView reordering", () => {
+  it("空の行に値を入れても行は作り直されず、Tab で次の欄へ移れる", async () => {
+    render(<Editable initial={{ attacks_0: "剣" }} schema={attackSchema([0, 1])} />);
+    await userEvent.click(screen.getByRole("button", { name: "攻撃 2 名前" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "攻撃 2 名前" }), "弓");
+    await userEvent.tab();
+    expect(screen.getByRole("button", { name: "攻撃 2 命中" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "攻撃 2 を並べ替え" })).toBeInTheDocument();
+  });
+
+  it("ほかの行を編集中にドラッグを始めると、編集中の値を先に確定してから並べ替える", async () => {
+    const onSet = vi.fn();
+    render(<Editable initial={{ attacks_0: "剣", attacks_1: "弓" }} schema={attackSchema([0, 1])} onSet={onSet} />);
+    await userEvent.click(screen.getByRole("button", { name: "攻撃 2 名前" }));
+    await userEvent.clear(screen.getByRole("textbox", { name: "攻撃 2 名前" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "攻撃 2 名前" }), "長弓");
+    // タッチでは入力欄のフォーカスが外れないことがあるので、フォーカスを動かさずにドラッグを始める
+    const handle = screen.getByRole("button", { name: "攻撃 1 を並べ替え" });
+    fireEvent.pointerDown(handle, { isPrimary: true, button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(document, { isPrimary: true, clientX: 0, clientY: 20 });
+    expect(onSet).toHaveBeenCalledWith("attacks_1", "長弓");
+    fireEvent.pointerUp(document, { isPrimary: true });
+  });
+
   it("攻撃の行を ↓ キーで動かすと、スロット間で値を入れ替えて保存する", async () => {
     const schema: FormSchema = {};
     let o = 0;
