@@ -1,5 +1,5 @@
 import { createContext, useContext, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { closestCenter, DndContext, PointerSensor, useDndMonitor, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
+import { closestCenter, DndContext, PointerSensor, useDndMonitor, useSensor, useSensors, type CollisionDetection, type UniqueIdentifier } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -27,7 +27,9 @@ const ACCESSIBILITY = {
   announcements: {
     onDragStart: () => "行を掴みました。",
     onDragOver: () => undefined,
-    onDragEnd: ({ over }: { over: unknown }) => (over ? "行を動かしました。" : "並べ替えをやめました。"),
+    // 落とし先は元の位置（掴んだ行自身）にもなる。そのときは何も動かない
+    onDragEnd: ({ active, over }: { active: { id: UniqueIdentifier }; over: { id: UniqueIdentifier } | null }) =>
+      over && over.id !== active.id ? "行を動かしました。" : "並べ替えをやめました。",
     onDragCancel: () => "並べ替えをやめました。",
   },
 };
@@ -113,6 +115,7 @@ function ActiveRow({ id, as: Tag, label, className, children, ctx }: RowProps & 
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: dndId(ctx.list, id),
     disabled: !sortable,
+    attributes: { roleDescription: "並べ替え可能" },
   });
 
   function onKeyDown(e: KeyboardEvent) {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SortableRow, SortableRows, SortableScope } from "./SortableRows";
@@ -8,16 +8,16 @@ function List({ ids, enabled = true, onMove = vi.fn() }: { ids: number[]; enable
     <SortableScope enabled={enabled}>
       <SortableRows ids={ids} onMove={onMove}>
         <ul>
-        {[0, 1, 2, 3].map((i) => (
-          <SortableRow key={i} id={i} as="li" label={`行 ${i + 1}`}>
-            {(handle) => (
-              <>
-                {handle}
-                <span>内容 {i}</span>
-              </>
-            )}
-          </SortableRow>
-        ))}
+          {[0, 1, 2, 3].map((i) => (
+            <SortableRow key={i} id={i} as="li" label={`行 ${i + 1}`}>
+              {(handle) => (
+                <>
+                  {handle}
+                  <span>内容 {i}</span>
+                </>
+              )}
+            </SortableRow>
+          ))}
         </ul>
       </SortableRows>
     </SortableScope>
@@ -57,5 +57,21 @@ describe("SortableRows", () => {
     screen.getByRole("button", { name: "行 2 を並べ替え" }).focus();
     await userEvent.keyboard("{ArrowDown}");
     expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("掴む場所の役割を日本語で伝える", () => {
+    render(<List ids={[0, 1]} />);
+    expect(screen.getByRole("button", { name: "行 1 を並べ替え" })).toHaveAttribute("aria-roledescription", "並べ替え可能");
+  });
+
+  it("元の位置に落としたときは、並べ替えをやめたと読み上げる", () => {
+    const onMove = vi.fn();
+    render(<List ids={[0, 1]} onMove={onMove} />);
+    // jsdom では行の位置がすべて 0 なので、落とし先は先頭の行（＝掴んだ行自身）になる
+    fireEvent.pointerDown(screen.getByRole("button", { name: "行 1 を並べ替え" }), { isPrimary: true, button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(document, { isPrimary: true, clientX: 0, clientY: 20 });
+    fireEvent.pointerUp(document, { isPrimary: true });
+    expect(onMove).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("並べ替えをやめました。");
   });
 });
