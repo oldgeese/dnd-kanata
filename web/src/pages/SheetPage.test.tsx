@@ -113,7 +113,8 @@ describe("SheetPage", () => {
   it("shows the sheet with derived values and save status", () => {
     setup();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("カタナ");
-    expect(screen.getByRole("status")).toHaveTextContent("保存済み");
+    // dnd-kit の live region も role="status" なので、保存状態は文言で引く
+    expect(screen.getByText("保存済み")).toHaveAttribute("role", "status");
     expect(screen.getByLabelText("敏捷力 修正")).toHaveTextContent("2");
     expect(screen.getByLabelText("隠密")).toHaveTextContent("2"); // DEX+2（レベル未入力なので習熟ボーナスは空）
     expect(screen.getByRole("button", { name: "メモ" })).toHaveTextContent("—");
@@ -128,9 +129,9 @@ describe("SheetPage", () => {
     expect(screen.getByLabelText("敏捷力 修正")).toHaveTextContent("5");
     expect(screen.getByLabelText("AC")).toHaveTextContent("15");
     expect(screen.getByLabelText("イニシアチブ")).toHaveTextContent("5");
-    expect(screen.getByRole("status")).toHaveTextContent("保存中…");
+    expect(screen.getByText("保存中…")).toHaveAttribute("role", "status");
     await waitFor(() => expect(update).toHaveBeenCalledWith("sheets/s1", { "fields/dex": "20", updatedAt: "TS" }));
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("保存済み"));
+    await waitFor(() => expect(screen.getByText("保存済み")).toHaveAttribute("role", "status"));
   });
 
   it("shows only filled equipment rows plus one empty row", () => {

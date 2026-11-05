@@ -113,7 +113,8 @@ table.grid th[scope="row"] small { display: block; margin: 0; }
 table.abilities th:first-child { width: 4.2em; white-space: nowrap; }
 table.abilities .ev, table.abilities .dv { white-space: nowrap; min-width: 0; padding-inline: 4px; }
 table.abilities td.strong .ev, table.abilities td.strong .dv { font-weight: 600; }
-table.equipment th:nth-child(2), table.equipment th:nth-child(3) { width: 4.5em; }
+/* 重量・個数（編集できるときは先頭に並べ替えの列が入るので、後ろから数える） */
+table.equipment th:nth-last-child(-n + 2) { width: 4.5em; }
 
 ul.rows { list-style: none; margin: 0; padding: 0; }
 ul.rows li { display: flex; align-items: center; gap: 4px; border-top: 1px solid #f0f0f0; min-width: 0; }
@@ -129,6 +130,19 @@ ul.attacks .atk-memo { grid-column: 1 / -1; flex-direction: row; align-items: ce
 ul.spells li > button.ev, ul.spells li > span.ev { flex: 1; }
 .spell-level .slots { display: inline-flex; align-items: center; font-weight: normal; }
 .spell-level .slots .ev { min-width: 2em; }
+
+/* 並べ替え: 掴む場所は行の左端。li では絶対配置にして、行の grid / flex の並びには入れない */
+li.sortable { position: relative; padding-left: 28px; }
+.drag-handle {
+  border: 0; background: none; padding: 0; margin: 0; color: #aaa; font: inherit; letter-spacing: -0.3em;
+  cursor: grab; touch-action: none; /* タッチで掴んだときにページがスクロールしないようにする */
+}
+li.sortable > .drag-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 24px; }
+table.grid .drag-cell { width: 28px; }
+td.drag-cell .drag-handle { display: block; width: 24px; min-height: 32px; }
+.drag-handle:focus-visible { outline: 2px solid #4a7bd0; outline-offset: -2px; }
+.sortable.dragging { position: relative; z-index: 1; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
+.sortable.dragging .drag-handle { cursor: grabbing; }
 
 @media (max-width: 480px) {
   .items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
