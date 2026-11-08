@@ -66,6 +66,23 @@ describe("RequireAuth", () => {
     },
   );
 
+  it("shows the version and links to the repository and X at the bottom of the sign-in screen", () => {
+    renderAuth();
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveTextContent(__APP_VERSION__);
+    expect(screen.getByRole("link", { name: "GitHub リポジトリ" })).toHaveAttribute(
+      "href",
+      "https://github.com/oldgeese/dnd-kanata",
+    );
+    expect(screen.getByRole("link", { name: "X" })).toHaveAttribute("href", "https://x.com/oldgeese");
+  });
+
+  it("shows the footer on the email-link confirmation screen too", () => {
+    window.history.replaceState(null, "", LINK);
+    renderAuth();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(__APP_VERSION__);
+  });
+
   it("shows an error when sign-in fails", async () => {
     signInWithPopup.mockRejectedValue(authError("auth/network-request-failed"));
     await setup();

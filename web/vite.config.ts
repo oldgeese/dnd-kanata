@@ -1,8 +1,12 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { appVersion } from "./scripts/appVersion";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion(mode)),
+  },
   build: {
     outDir: "dist",
     rollupOptions: {
@@ -21,4 +25,4 @@ export default defineConfig({
     setupFiles: ["./src/test-setup.ts"],
     globalSetup: ["./scripts/gen-schema-fixture.ts"],
   },
-});
+}));
