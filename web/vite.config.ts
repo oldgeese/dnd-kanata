@@ -1,10 +1,12 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { appVersion } from "./scripts/appVersion";
+import { appName, appNameHtml } from "./scripts/appName";
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), appNameHtml(appName(mode))],
   define: {
+    __APP_NAME__: JSON.stringify(appName(mode)),
     __APP_VERSION__: JSON.stringify(appVersion(mode)),
   },
   build: {

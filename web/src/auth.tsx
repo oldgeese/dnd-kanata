@@ -250,7 +250,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return (
       <div className="login-page">
         <main className="center">
-          <h1>dnd-kanata</h1>
+          <h1>{__APP_NAME__}</h1>
           <p>確認のため、ログイン用のリンクを送ったメールアドレスを入力してください</p>
           <EmailForm submitLabel="ログイン" onSubmit={confirmEmailLink} />
           {alert}
@@ -265,7 +265,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return (
     <div className="login-page">
       <main className="center">
-        <h1>dnd-kanata</h1>
+        <h1>{__APP_NAME__}</h1>
         <p>D&amp;D 5e キャラクターシートの閲覧・編集</p>
         <button onClick={() => void onSignIn()}>Google でログイン</button>
         <p className="or">または、メールで届くリンクからログイン</p>
