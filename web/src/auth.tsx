@@ -188,7 +188,7 @@ function LoginFooter() {
       <a href="https://github.com/oldgeese/dnd-kanata" target="_blank" rel="noopener noreferrer" aria-label="GitHub リポジトリ">
         <Icon icon={githubIcon} width={20} height={20} aria-hidden="true" />
       </a>
-      <a href="https://x.com/oldgeese" target="_blank" rel="noopener noreferrer" aria-label="X">
+      <a href="https://x.com/oldgeese" target="_blank" rel="noopener noreferrer" aria-label="X（@oldgeese）">
         <Icon icon={xIcon} width={18} height={18} aria-hidden="true" />
       </a>
     </footer>
