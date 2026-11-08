@@ -66,6 +66,30 @@ describe("RequireAuth", () => {
     },
   );
 
+  it("shows the version and links to the repository and X at the bottom of the sign-in screen", () => {
+    renderAuth();
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveTextContent(__APP_VERSION__);
+    // main の中の footer はブラウザで contentinfo として扱われない
+    expect(footer.closest("main")).toBeNull();
+    expect(screen.getByRole("link", { name: "GitHub リポジトリ" })).toHaveAttribute(
+      "href",
+      "https://github.com/oldgeese/dnd-kanata",
+    );
+    expect(screen.getByRole("link", { name: "X（@oldgeese）" })).toHaveAttribute("href", "https://x.com/oldgeese");
+    // アイコンは外部から取得せず、同梱のデータで描く
+    expect(screen.getByRole("link", { name: "GitHub リポジトリ" }).querySelector("svg path")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "X（@oldgeese）" }).querySelector("svg path")).not.toBeNull();
+  });
+
+  it("shows the footer on the email-link confirmation screen too", () => {
+    window.history.replaceState(null, "", LINK);
+    renderAuth();
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveTextContent(__APP_VERSION__);
+    expect(footer.closest("main")).toBeNull();
+  });
+
   it("shows an error when sign-in fails", async () => {
     signInWithPopup.mockRejectedValue(authError("auth/network-request-failed"));
     await setup();

@@ -71,3 +71,5 @@ GitHub Actions (Workload Identity Federation で認証) が自動で行います
 pnpm deploy:dev
 pnpm deploy:prod
 ```
+
+ログイン画面の下部には、prod ではリリース番号 (Release のタグ名)、それ以外ではコミットハッシュを表示します。prod のビルドはタグが分からないと失敗するので、手動でデプロイするときはタグの付いたコミットで実行するか、`RELEASE_TAG=v1.0.0 pnpm deploy:prod` のようにタグ名を渡してください。

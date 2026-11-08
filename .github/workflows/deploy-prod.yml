@@ -41,3 +41,6 @@ jobs:
       # --force: Functions の artifact cleanup policy 設定などの確認プロンプトを自動承認する
       #   (副作用として、コードから削除した Functions も確認なしで削除される)。
       - run: pnpm deploy:prod --non-interactive --force
+        env:
+          # 画面に出すリリース番号。浅いクローンではタグを取得しないため、イベントから渡す
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
