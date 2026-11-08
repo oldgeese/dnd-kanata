@@ -1,10 +1,13 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { appVersion } from "./scripts/appVersion";
+import { appName } from "./scripts/appName";
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   define: {
+    // import.meta.env.* の define は index.html の %VITE_APP_NAME% の置き換えにも使われる
+    "import.meta.env.VITE_APP_NAME": JSON.stringify(appName(mode)),
     __APP_VERSION__: JSON.stringify(appVersion(mode)),
   },
   build: {

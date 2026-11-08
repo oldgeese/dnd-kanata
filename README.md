@@ -72,4 +72,6 @@ pnpm deploy:dev
 pnpm deploy:prod
 ```
 
+ログイン画面の見出しとページのタイトルは、prod では `dnd-kanata`、それ以外では本番と見分けられるよう `dnd-kanata(開発用)` になります。
+
 ログイン画面の下部には、prod ではリリース番号 (Release のタグ名)、それ以外ではコミットハッシュを表示します。prod のビルドはタグが分からないと失敗するので、手動でデプロイするときはタグの付いたコミットで実行するか、`RELEASE_TAG=v1.0.0 pnpm deploy:prod` のようにタグ名を渡してください。
