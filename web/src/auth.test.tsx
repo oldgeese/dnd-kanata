@@ -70,6 +70,8 @@ describe("RequireAuth", () => {
     renderAuth();
     const footer = screen.getByRole("contentinfo");
     expect(footer).toHaveTextContent(__APP_VERSION__);
+    // main の中の footer はブラウザで contentinfo として扱われない
+    expect(footer.closest("main")).toBeNull();
     expect(screen.getByRole("link", { name: "GitHub リポジトリ" })).toHaveAttribute(
       "href",
       "https://github.com/oldgeese/dnd-kanata",
@@ -80,7 +82,9 @@ describe("RequireAuth", () => {
   it("shows the footer on the email-link confirmation screen too", () => {
     window.history.replaceState(null, "", LINK);
     renderAuth();
-    expect(screen.getByRole("contentinfo")).toHaveTextContent(__APP_VERSION__);
+    const footer = screen.getByRole("contentinfo");
+    expect(footer).toHaveTextContent(__APP_VERSION__);
+    expect(footer.closest("main")).toBeNull();
   });
 
   it("shows an error when sign-in fails", async () => {

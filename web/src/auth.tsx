@@ -176,7 +176,8 @@ function EmailForm({ submitLabel, onSubmit }: { submitLabel: string; onSubmit(em
   );
 }
 
-// ログイン画面の下部。バージョンと、リポジトリ・X へのリンク
+// ログイン画面の下部。バージョンと、リポジトリ・X へのリンク。
+// main の中の footer は contentinfo の landmark にならないので、main の外に置く
 function LoginFooter() {
   return (
     <footer className="login-footer">
@@ -248,32 +249,36 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (user) return <>{children}</>;
   if (emailLinkPending) {
     return (
-      <main className="center">
-        <h1>dnd-kanata</h1>
-        <p>確認のため、ログイン用のリンクを送ったメールアドレスを入力してください</p>
-        <EmailForm submitLabel="ログイン" onSubmit={confirmEmailLink} />
-        {alert}
-        <button className="back" onClick={resetEmailLink}>
-          ログイン画面に戻る
-        </button>
+      <>
+        <main className="center">
+          <h1>dnd-kanata</h1>
+          <p>確認のため、ログイン用のリンクを送ったメールアドレスを入力してください</p>
+          <EmailForm submitLabel="ログイン" onSubmit={confirmEmailLink} />
+          {alert}
+          <button className="back" onClick={resetEmailLink}>
+            ログイン画面に戻る
+          </button>
+        </main>
         <LoginFooter />
-      </main>
+      </>
     );
   }
   return (
-    <main className="center">
-      <h1>dnd-kanata</h1>
-      <p>D&amp;D 5e キャラクターシートの閲覧・編集</p>
-      <button onClick={() => void onSignIn()}>Google でログイン</button>
-      <p className="or">または、メールで届くリンクからログイン</p>
-      <EmailForm submitLabel="ログイン用のリンクを送る" onSubmit={onSendLink} />
-      {sentTo && (
-        <p>
-          {sentTo} にログイン用のリンクを送りました。メールのリンクを開いてください。届かないときは迷惑メールのフォルダも確認してください
-        </p>
-      )}
-      {alert}
+    <>
+      <main className="center">
+        <h1>dnd-kanata</h1>
+        <p>D&amp;D 5e キャラクターシートの閲覧・編集</p>
+        <button onClick={() => void onSignIn()}>Google でログイン</button>
+        <p className="or">または、メールで届くリンクからログイン</p>
+        <EmailForm submitLabel="ログイン用のリンクを送る" onSubmit={onSendLink} />
+        {sentTo && (
+          <p>
+            {sentTo} にログイン用のリンクを送りました。メールのリンクを開いてください。届かないときは迷惑メールのフォルダも確認してください
+          </p>
+        )}
+        {alert}
+      </main>
       <LoginFooter />
-    </main>
+    </>
   );
 }
