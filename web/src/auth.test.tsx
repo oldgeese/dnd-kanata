@@ -84,13 +84,13 @@ describe("RequireAuth", () => {
 
   it("shows the app name as the heading on the sign-in screen", () => {
     renderAuth();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(__APP_NAME__);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(import.meta.env.VITE_APP_NAME);
   });
 
   it("shows the footer on the email-link confirmation screen too", () => {
     window.history.replaceState(null, "", LINK);
     renderAuth();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(__APP_NAME__);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(import.meta.env.VITE_APP_NAME);
     const footer = screen.getByRole("contentinfo");
     expect(footer).toHaveTextContent(__APP_VERSION__);
     expect(footer.closest("main")).toBeNull();
