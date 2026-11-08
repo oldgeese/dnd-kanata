@@ -77,6 +77,9 @@ describe("RequireAuth", () => {
       "https://github.com/oldgeese/dnd-kanata",
     );
     expect(screen.getByRole("link", { name: "X" })).toHaveAttribute("href", "https://x.com/oldgeese");
+    // アイコンは外部から取得せず、同梱のデータで描く
+    expect(screen.getByRole("link", { name: "GitHub リポジトリ" }).querySelector("svg path")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "X" }).querySelector("svg path")).not.toBeNull();
   });
 
   it("shows the footer on the email-link confirmation screen too", () => {

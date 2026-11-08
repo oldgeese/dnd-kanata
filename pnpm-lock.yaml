@@ -243,6 +243,12 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@18.3.1)
+      '@iconify-icons/simple-icons':
+        specifier: 2.0.7
+        version: 2.0.7
+      '@iconify/react':
+        specifier: 6.0.3
+        version: 6.0.3(react@18.3.1)
       firebase:
         specifier: ^12.19.0
         version: 12.19.0
@@ -1096,6 +1102,17 @@ packages:
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4 || ^5.0.0-0
+
+  '@iconify-icons/simple-icons@2.0.7':
+    resolution: {integrity: sha512-3fHf33oWI4GbMBPK6xLenVZeJdD/xG9v5hswViz1o817HsfBo8qrvAWDxA+SEqUEDxSE3w4oX4pVvBaRoXutKQ==}
+
+  '@iconify/react@6.0.3':
+    resolution: {integrity: sha512-2x7gVs+tpUG75aXYo/0c5wPOqrFy75YSGKmuJZyuHyrHMydzXpI/+i9/USIzWXJL9WWc2BCgPVnGY2FhbeiiDQ==}
+    peerDependencies:
+      react: '>=18.0.0'
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@inquirer/ansi@1.0.2':
     resolution: {integrity: sha512-S8qNSZiYzFd0wAcyG5AXCvUHC5Sr7xpZ9wZ2py9XR88jUz8wooStVx5M6dRzczbBWjic9NP7+rY0Xi7qqK/aMQ==}
@@ -5033,6 +5050,17 @@ snapshots:
   '@hono/node-server@2.1.5(hono@4.13.14)':
     dependencies:
       hono: 4.13.14
+
+  '@iconify-icons/simple-icons@2.0.7':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/react@6.0.3(react@18.3.1)':
+    dependencies:
+      '@iconify/types': 2.0.0
+      react: 18.3.1
+
+  '@iconify/types@2.0.0': {}
 
   '@inquirer/ansi@1.0.2': {}
 
