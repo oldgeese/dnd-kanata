@@ -156,6 +156,12 @@ describe("EditableNumber", () => {
     expect(onChange).toHaveBeenCalledWith("13");
   });
 
+  it("disables ± for an integer too large to step exactly", () => {
+    render(<EditableNumber label="GP" value="99999999999999999999" onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "GP を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "GP を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("disables ± for a value that is not an integer, so it is not overwritten", () => {
     render(<EditableNumber label="使用" value="2/3" onChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toHaveAttribute("aria-disabled", "true");

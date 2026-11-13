@@ -1,11 +1,12 @@
 import { EditableText } from "./EditableText";
 import type { EditableProps } from "./inline";
 
-/** 整数として読めれば数値、空欄は 0、それ以外（"2/3" など）は null（全角数字も可） */
+/** 整数として読めれば数値、空欄は 0、それ以外（"2/3" や、丸められてしまう大きな数など）は null（全角数字も可） */
 export function parseStepValue(value: string): number | null {
   const s = value.normalize("NFKC").trim();
   if (s === "") return 0;
-  return /^-?\d+$/.test(s) ? Number(s) : null;
+  const n = Number(s);
+  return /^-?\d+$/.test(s) && Number.isSafeInteger(n) ? n : null;
 }
 
 // 所持金・呪文スロットの使用数用。± ボタンで 1 ずつ増減する。
@@ -14,7 +15,7 @@ export function parseStepValue(value: string): number | null {
 export function EditableNumber(props: EditableProps & { min?: number; max?: number }) {
   const { min, max, ...rest } = props;
   const n = parseStepValue(props.value);
-  const canStep = (d: number) => n !== null && !(d < 0 && min !== undefined && n <= min) && !(d > 0 && max !== undefined && n >= max);
+  const canStep = (d: number) => n !== null && Number.isSafeInteger(n + d) && !(d < 0 && min !== undefined && n <= min) && !(d > 0 && max !== undefined && n >= max);
   // disabled にすると押した直後に上限・下限へ達したときフォーカスが外れるので、aria-disabled にして押しても何もしない
   const button = (d: number, text: string, verb: string) => (
     <button
