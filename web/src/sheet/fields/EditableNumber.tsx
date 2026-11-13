@@ -1,25 +1,30 @@
 import { EditableText } from "./EditableText";
 import type { EditableProps } from "./inline";
 
-// 所持金・呪文スロットの使用数用。± ボタンで 1 ずつ増減する。数値でない値は 0 とみなす。
-export function EditableNumber(props: EditableProps) {
-  const step = (d: number) => {
-    const n = parseInt(props.value);
-    props.onChange(String((isNaN(n) ? 0 : n) + d));
-  };
+/** 整数として読めれば数値、空欄は 0、それ以外（"2/3" など）は null（全角数字も可） */
+export function parseStepValue(value: string): number | null {
+  const s = value.normalize("NFKC").trim();
+  if (s === "") return 0;
+  return /^-?\d+$/.test(s) ? Number(s) : null;
+}
+
+// 所持金・呪文スロットの使用数用。± ボタンで 1 ずつ増減する。
+// 整数でない値は上書きで失われるので、そのときは ± を使えなくする。
+// min・max を越える方向へは増減しない（範囲の外にある値を範囲へ近づける向きには動かせる）。
+export function EditableNumber(props: EditableProps & { min?: number; max?: number }) {
+  const { min, max, ...rest } = props;
+  const n = parseStepValue(props.value);
+  const canStep = (d: number) => n !== null && !(d < 0 && min !== undefined && n <= min) && !(d > 0 && max !== undefined && n >= max);
+  const button = (d: number, text: string, verb: string) => (
+    <button type="button" className="step" aria-label={`${props.label} を 1 ${verb}`} disabled={!canStep(d)} onClick={() => props.onChange(String(n! + d))}>
+      {text}
+    </button>
+  );
   return (
     <span className="num">
-      {!props.readOnly && (
-        <button type="button" className="step" aria-label={`${props.label} を 1 減らす`} onClick={() => step(-1)}>
-          −
-        </button>
-      )}
-      <EditableText {...props} inputMode="numeric" className="num-value" />
-      {!props.readOnly && (
-        <button type="button" className="step" aria-label={`${props.label} を 1 増やす`} onClick={() => step(1)}>
-          +
-        </button>
-      )}
+      {!props.readOnly && button(-1, "−", "減らす")}
+      <EditableText {...rest} inputMode="numeric" className="num-value" />
+      {!props.readOnly && button(1, "+", "増やす")}
     </span>
   );
 }

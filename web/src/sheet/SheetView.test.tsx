@@ -161,6 +161,18 @@ describe("SheetView spell slots", () => {
     expect(screen.getByRole("textbox", { name: "Lv1 スロット使用数" })).toHaveAttribute("inputmode", "numeric");
   });
 
+  it("使用数は 0 未満にも、総数より上にもならない", () => {
+    const { rerender } = render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "2", SPELLLV1_SLOTUSED: "0" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 減らす" })).toBeDisabled();
+    rerender(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "2", SPELLLV1_SLOTUSED: "2" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 増やす" })).toBeDisabled();
+  });
+
+  it("総数が数字でなければ、使用数の上限は設けない", () => {
+    render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "", SPELLLV1_SLOTUSED: "5" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 増やす" })).toBeEnabled();
+  });
+
   it("閲覧のみのときは ± ボタンを出さない", () => {
     render(<SheetView fields={{ SPELLLV1_SLOTUSED: "1" }} schema={schema} derived={{}} setField={vi.fn()} readOnly />);
     expect(screen.queryByRole("button", { name: /スロット使用数 を 1/ })).not.toBeInTheDocument();
