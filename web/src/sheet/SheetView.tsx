@@ -15,8 +15,10 @@ import { reorderSlots } from "./reorder";
 import { SortableRow, SortableRows, SortableScope } from "./SortableRows";
 import { useKeyboardTapFix } from "./useKeyboardTapFix";
 
-const NUMBER_FIELDS = new Set(["PP", "GP", "EP", "SP", "CP"]);
-const HP_FIELDS = new Set(["max_hp", "current_hp", "temp_hp"]);
+// ± ボタンで増減する数値
+const isStepField = (name: string) => ["PP", "GP", "EP", "SP", "CP"].includes(name) || /^SPELLLV\d+_SLOTUSED$/.test(name);
+// 数字のキーボードで入力する数値
+const isNumericField = (name: string) => ["max_hp", "current_hp", "temp_hp"].includes(name) || /^SPELLLV\d+_SLOTTOTAL$/.test(name);
 const DERIVED = new Set(DERIVED_FIELDS);
 
 interface Ctx {
@@ -47,8 +49,8 @@ function Control({ name, label }: { name: string; label?: string }) {
       return <EditableCheckbox {...p} checkedValue={def.checkedValue ?? "on"} />;
     default:
       if (name === "tag") return <EditableTags {...p} />;
-      if (NUMBER_FIELDS.has(name)) return <EditableNumber {...p} />;
-      return <EditableText {...p} inputMode={HP_FIELDS.has(name) ? "numeric" : undefined} />;
+      if (isStepField(name)) return <EditableNumber {...p} />;
+      return <EditableText {...p} inputMode={isNumericField(name) ? "numeric" : undefined} />;
   }
 }
 
