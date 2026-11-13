@@ -119,14 +119,27 @@ describe("EditableNumber", () => {
 
   it("does not go below min or above max", () => {
     render(<EditableNumber label="使用" value="0" min={0} max={3} onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).not.toHaveAttribute("aria-disabled", "true");
   });
 
   it("disables + at max", () => {
     render(<EditableNumber label="使用" value="3" min={0} max={3} onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("keeps focus on the button and ignores presses after reaching max", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<EditableNumber label="使用" value="2" min={0} max={3} onChange={onChange} />);
+    const plus = screen.getByRole("button", { name: "使用 を 1 増やす" });
+    plus.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onChange).toHaveBeenLastCalledWith("3");
+    rerender(<EditableNumber label="使用" value="3" min={0} max={3} onChange={onChange} />);
+    expect(plus).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it("brings a value outside the range back toward it", async () => {
@@ -145,8 +158,8 @@ describe("EditableNumber", () => {
 
   it("disables ± for a value that is not an integer, so it is not overwritten", () => {
     render(<EditableNumber label="使用" value="2/3" onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
   });
 });
 

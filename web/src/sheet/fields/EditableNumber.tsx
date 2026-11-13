@@ -15,8 +15,15 @@ export function EditableNumber(props: EditableProps & { min?: number; max?: numb
   const { min, max, ...rest } = props;
   const n = parseStepValue(props.value);
   const canStep = (d: number) => n !== null && !(d < 0 && min !== undefined && n <= min) && !(d > 0 && max !== undefined && n >= max);
+  // disabled にすると押した直後に上限・下限へ達したときフォーカスが外れるので、aria-disabled にして押しても何もしない
   const button = (d: number, text: string, verb: string) => (
-    <button type="button" className="step" aria-label={`${props.label} を 1 ${verb}`} disabled={!canStep(d)} onClick={() => props.onChange(String(n! + d))}>
+    <button
+      type="button"
+      className="step"
+      aria-label={`${props.label} を 1 ${verb}`}
+      aria-disabled={!canStep(d) || undefined}
+      onClick={() => canStep(d) && props.onChange(String(n! + d))}
+    >
       {text}
     </button>
   );
