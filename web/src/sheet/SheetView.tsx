@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, type MouseEvent,
 import { DERIVED_FIELDS, type Derived, type Fields, type FormSchema } from "@dnd-kanata/core/browser";
 import { DerivedValue } from "./fields/DerivedValue";
 import { EditableCheckbox } from "./fields/EditableCheckbox";
-import { EditableNumber } from "./fields/EditableNumber";
+import { EditableNumber, parseStepValue } from "./fields/EditableNumber";
 import { EditableSelect } from "./fields/EditableSelect";
 import { EditableTags } from "./fields/EditableTags";
 import { EditableText } from "./fields/EditableText";
@@ -15,8 +15,10 @@ import { reorderSlots } from "./reorder";
 import { SortableRow, SortableRows, SortableScope } from "./SortableRows";
 import { useKeyboardTapFix } from "./useKeyboardTapFix";
 
-const NUMBER_FIELDS = new Set(["PP", "GP", "EP", "SP", "CP"]);
-const HP_FIELDS = new Set(["max_hp", "current_hp", "temp_hp"]);
+// ± ボタンで増減する数値
+const isStepField = (name: string) => ["PP", "GP", "EP", "SP", "CP"].includes(name) || /^SPELLLV\d+_SLOTUSED$/.test(name);
+// 数字のキーボードで入力する数値
+const isNumericField = (name: string) => ["max_hp", "current_hp", "temp_hp"].includes(name) || /^SPELLLV\d+_SLOTTOTAL$/.test(name);
 const DERIVED = new Set(DERIVED_FIELDS);
 
 interface Ctx {
@@ -28,6 +30,15 @@ interface Ctx {
 }
 const SheetCtx = createContext<Ctx | null>(null);
 const useCtx = () => useContext(SheetCtx)!;
+
+// 呪文スロットの使用数は 0 から総数まで（総数が空欄や数字でなければ上限なし）
+function stepRange(name: string, fields: Fields): { min?: number; max?: number } {
+  const m = /^(SPELLLV\d+)_SLOTUSED$/.exec(name);
+  if (!m) return {};
+  const total = fields[`${m[1]}_SLOTTOTAL`] ?? "";
+  const max = total.trim() === "" ? null : parseStepValue(total);
+  return { min: 0, max: max ?? undefined };
+}
 
 /** 項目の種類に合った入力欄（派生値・readonly は表示のみ） */
 function Control({ name, label }: { name: string; label?: string }) {
@@ -47,8 +58,8 @@ function Control({ name, label }: { name: string; label?: string }) {
       return <EditableCheckbox {...p} checkedValue={def.checkedValue ?? "on"} />;
     default:
       if (name === "tag") return <EditableTags {...p} />;
-      if (NUMBER_FIELDS.has(name)) return <EditableNumber {...p} />;
-      return <EditableText {...p} inputMode={HP_FIELDS.has(name) ? "numeric" : undefined} />;
+      if (isStepField(name)) return <EditableNumber {...p} {...stepRange(name, c.fields)} />;
+      return <EditableText {...p} inputMode={isNumericField(name) ? "numeric" : undefined} />;
   }
 }
 

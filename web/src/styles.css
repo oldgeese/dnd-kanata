@@ -93,6 +93,7 @@ textarea.ei { resize: vertical; min-height: 4.5em; line-height: 1.5; overflow: h
 .num { display: inline-flex; align-items: center; gap: 4px; }
 .num .num-value { width: 4.5em; text-align: center; }
 .num .step { width: 32px; height: 32px; padding: 0; border: 1px solid #ccc; border-radius: 50%; background: #fff; font-size: 1.1rem; line-height: 1; }
+.num .step[aria-disabled="true"] { color: #bbb; cursor: default; }
 
 .hp-adjust { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 8px; margin-top: 8px; }
 .hp-adjust .item { width: 6em; }

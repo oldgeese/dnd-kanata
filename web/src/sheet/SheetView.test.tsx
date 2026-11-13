@@ -140,3 +140,41 @@ describe("SheetView tag field", () => {
     expect(setField).toHaveBeenCalledWith("tag", "戦士 エルフ");
   });
 });
+
+describe("SheetView spell slots", () => {
+  const schema: FormSchema = { SPELLLV1_SLOTTOTAL: t(0), SPELLLV1_SLOTUSED: t(1), SPELLLV1_0: t(2) };
+
+  it("スロット総数は数字のキーボードで入力する", async () => {
+    render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "3" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    await userEvent.click(screen.getByRole("button", { name: "Lv1 スロット総数" }));
+    expect(screen.getByRole("textbox", { name: "Lv1 スロット総数" })).toHaveAttribute("inputmode", "numeric");
+  });
+
+  it("使用数は ± ボタンで 1 ずつ増減でき、数字のキーボードで入力する", async () => {
+    const setField = vi.fn();
+    render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "3", SPELLLV1_SLOTUSED: "1" }} schema={schema} derived={{}} setField={setField} readOnly={false} />);
+    await userEvent.click(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 増やす" }));
+    expect(setField).toHaveBeenLastCalledWith("SPELLLV1_SLOTUSED", "2");
+    await userEvent.click(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 減らす" }));
+    expect(setField).toHaveBeenLastCalledWith("SPELLLV1_SLOTUSED", "0");
+    await userEvent.click(screen.getByRole("button", { name: "Lv1 スロット使用数" }));
+    expect(screen.getByRole("textbox", { name: "Lv1 スロット使用数" })).toHaveAttribute("inputmode", "numeric");
+  });
+
+  it("使用数は 0 未満にも、総数より上にもならない", () => {
+    const { rerender } = render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "2", SPELLLV1_SLOTUSED: "0" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
+    rerender(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "2", SPELLLV1_SLOTUSED: "2" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("総数が数字でなければ、使用数の上限は設けない", () => {
+    render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "", SPELLLV1_SLOTUSED: "5" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 スロット使用数 を 1 増やす" })).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("閲覧のみのときは ± ボタンを出さない", () => {
+    render(<SheetView fields={{ SPELLLV1_SLOTUSED: "1" }} schema={schema} derived={{}} setField={vi.fn()} readOnly />);
+    expect(screen.queryByRole("button", { name: /スロット使用数 を 1/ })).not.toBeInTheDocument();
+  });
+});

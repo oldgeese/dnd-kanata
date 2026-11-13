@@ -116,6 +116,57 @@ describe("EditableNumber", () => {
     await userEvent.type(input, "12{Enter}");
     expect(onChange).toHaveBeenCalledWith("12");
   });
+
+  it("does not go below min or above max", () => {
+    render(<EditableNumber label="使用" value="0" min={0} max={3} onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("disables + at max", () => {
+    render(<EditableNumber label="使用" value="3" min={0} max={3} onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("keeps focus on the button and ignores presses after reaching max", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<EditableNumber label="使用" value="2" min={0} max={3} onChange={onChange} />);
+    const plus = screen.getByRole("button", { name: "使用 を 1 増やす" });
+    plus.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onChange).toHaveBeenLastCalledWith("3");
+    rerender(<EditableNumber label="使用" value="3" min={0} max={3} onChange={onChange} />);
+    expect(plus).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("brings a value outside the range back toward it", async () => {
+    const onChange = vi.fn();
+    render(<EditableNumber label="使用" value="5" min={0} max={3} onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "使用 を 1 減らす" }));
+    expect(onChange).toHaveBeenCalledWith("4");
+  });
+
+  it("reads full-width digits", async () => {
+    const onChange = vi.fn();
+    render(<EditableNumber label="GP" value="１２" onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "GP を 1 増やす" }));
+    expect(onChange).toHaveBeenCalledWith("13");
+  });
+
+  it("disables ± for an integer too large to step exactly", () => {
+    render(<EditableNumber label="GP" value="99999999999999999999" onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "GP を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "GP を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("disables ± for a value that is not an integer, so it is not overwritten", () => {
+    render(<EditableNumber label="使用" value="2/3" onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "使用 を 1 増やす" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "使用 を 1 減らす" })).toHaveAttribute("aria-disabled", "true");
+  });
 });
 
 describe("EditableCheckbox", () => {
