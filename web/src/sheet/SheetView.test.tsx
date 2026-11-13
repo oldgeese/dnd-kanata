@@ -178,3 +178,47 @@ describe("SheetView spell slots", () => {
     expect(screen.queryByRole("button", { name: /スロット使用数 を 1/ })).not.toBeInTheDocument();
   });
 });
+
+describe("SheetView cast button", () => {
+  const schema: FormSchema = {
+    SPELLLV0_0: t(0),
+    SPELLLV1_SLOTTOTAL: t(1),
+    SPELLLV1_SLOTUSED: t(2),
+    SPELLLV1_0_PREPEARD: { kind: "checkbox", order: 3, checkedValue: "on" },
+    SPELLLV1_0: t(4),
+    SPELLLV1_1_PREPEARD: { kind: "checkbox", order: 5, checkedValue: "on" },
+    SPELLLV1_1: t(6),
+  };
+
+  it("発動を押すと、その Lv のスロット使用数を 1 増やす", async () => {
+    const setField = vi.fn();
+    render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "3", SPELLLV1_SLOTUSED: "1", SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={setField} readOnly={false} />);
+    await userEvent.click(screen.getByRole("button", { name: "Lv1 呪文 1 を発動" }));
+    expect(setField).toHaveBeenCalledWith("SPELLLV1_SLOTUSED", "2");
+  });
+
+  it("使用数が空欄なら 1 にする", async () => {
+    const setField = vi.fn();
+    render(<SheetView fields={{ SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={setField} readOnly={false} />);
+    await userEvent.click(screen.getByRole("button", { name: "Lv1 呪文 1 を発動" }));
+    expect(setField).toHaveBeenCalledWith("SPELLLV1_SLOTUSED", "1");
+  });
+
+  it("スロットを使い切っているときや、使用数が整数でないときは押せない", async () => {
+    const setField = vi.fn();
+    const { rerender } = render(<SheetView fields={{ SPELLLV1_SLOTTOTAL: "2", SPELLLV1_SLOTUSED: "2", SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={setField} readOnly={false} />);
+    const cast = screen.getByRole("button", { name: "Lv1 呪文 1 を発動" });
+    expect(cast).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(cast);
+    rerender(<SheetView fields={{ SPELLLV1_SLOTUSED: "2/3", SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={setField} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "Lv1 呪文 1 を発動" })).toHaveAttribute("aria-disabled", "true");
+    expect(setField).not.toHaveBeenCalled();
+  });
+
+  it("空の行、初級呪文、閲覧のみのときは出さない", () => {
+    const { rerender } = render(<SheetView fields={{ SPELLLV0_0: "光", SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getAllByRole("button", { name: /を発動$/ })).toHaveLength(1);
+    rerender(<SheetView fields={{ SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={vi.fn()} readOnly />);
+    expect(screen.queryByRole("button", { name: /を発動$/ })).not.toBeInTheDocument();
+  });
+});
