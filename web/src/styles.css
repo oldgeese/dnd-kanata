@@ -173,3 +173,5 @@ tr.sortable.dragging > td:last-child::before { right: 0; }
 .owner-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 .share-link input { width: 22em; max-width: 100%; }
 .dialog label { display: block; margin: 8px 0; }
+ul.spells .cast { padding: 4px 10px; border: 1px solid #ccc; border-radius: 16px; background: #fff; font-size: .85rem; white-space: nowrap; }
+ul.spells .cast[aria-disabled="true"] { color: #bbb; cursor: default; }
