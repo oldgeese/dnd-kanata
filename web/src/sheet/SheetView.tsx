@@ -438,7 +438,7 @@ function useBodies(): Record<string, Body> {
                           <>
                             {handle}
                             {names.includes(s.prep) && <Control name={s.prep} label={`${title} 呪文 ${i + 1} 準備`} />}
-                            {castable && !isEmpty(s) && <CastButton used={used} label={`${title} 呪文 ${i + 1} を発動`} />}
+                            {castable && val(s.name) !== "" && <CastButton used={used} label={`${title} 呪文 ${i + 1} を発動`} />}
                             <Control name={s.name} label={`${title} 呪文 ${i + 1}`} />
                           </>
                         )}

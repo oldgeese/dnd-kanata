@@ -9,9 +9,6 @@ export function parseStepValue(value: string): number | null {
   return /^-?\d+$/.test(s) && Number.isSafeInteger(n) ? n : null;
 }
 
-// 所持金・呪文スロットの使用数用。± ボタンで 1 ずつ増減する。
-// 整数でない値は上書きで失われるので、そのときは ± を使えなくする。
-// min・max を越える方向へは増減しない（範囲の外にある値を範囲へ近づける向きには動かせる）。
 export interface StepRange {
   min?: number;
   max?: number;
@@ -25,6 +22,9 @@ export function stepValue(value: string, d: number, { min, max }: StepRange = {}
   return String(n + d);
 }
 
+// 所持金・呪文スロットの使用数用。± ボタンで 1 ずつ増減する。
+// 整数でない値は上書きで失われるので、そのときは ± を使えなくする。
+// min・max を越える方向へは増減しない（範囲の外にある値を範囲へ近づける向きには動かせる）。
 export function EditableNumber(props: EditableProps & StepRange) {
   const { min, max, ...rest } = props;
   // disabled にすると押した直後に上限・下限へ達したときフォーカスが外れるので、aria-disabled にして押しても何もしない

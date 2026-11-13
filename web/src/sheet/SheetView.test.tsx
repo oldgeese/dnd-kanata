@@ -218,6 +218,9 @@ describe("SheetView cast button", () => {
   it("空の行、初級呪文、閲覧のみのときは出さない", () => {
     const { rerender } = render(<SheetView fields={{ SPELLLV0_0: "光", SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
     expect(screen.getAllByRole("button", { name: /を発動$/ })).toHaveLength(1);
+    // 準備のチェックだけが入った行（呪文名は空）にも出さない
+    rerender(<SheetView fields={{ SPELLLV1_0: "魔法の矢", SPELLLV1_1_PREPEARD: "on" }} schema={schema} derived={{}} setField={vi.fn()} readOnly={false} />);
+    expect(screen.getAllByRole("button", { name: /を発動$/ })).toHaveLength(1);
     rerender(<SheetView fields={{ SPELLLV1_0: "魔法の矢" }} schema={schema} derived={{}} setField={vi.fn()} readOnly />);
     expect(screen.queryByRole("button", { name: /を発動$/ })).not.toBeInTheDocument();
   });
