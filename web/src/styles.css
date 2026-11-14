@@ -52,8 +52,9 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 .save-status.error { color: #b00020; }
 .save-status button { padding: 2px 10px; font-size: .85rem; }
 
-nav.toc { display: flex; gap: 4px; overflow-x: auto; padding: 6px 12px; margin: 0 -12px; scrollbar-width: none; }
-nav.toc a { flex: none; padding: 4px 10px; border-radius: 999px; background: #fff; border: 1px solid #ddd; color: #333; text-decoration: none; font-size: .85rem; }
+/* 幅が狭いときは横スクロールさせずに折り返す */
+nav.toc { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0; }
+nav.toc a { padding: 4px 10px; border-radius: 999px; background: #fff; border: 1px solid #ddd; color: #333; text-decoration: none; font-size: .85rem; }
 
 section.card { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 12px; margin-bottom: 12px; scroll-margin-top: 8px; }
 section.card h2 { margin: 0 0 8px; font-size: 1.05rem; }
