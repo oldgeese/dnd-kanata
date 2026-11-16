@@ -7,10 +7,11 @@ import { classLabel, ListPage } from "./ListPage";
 const callable = vi.fn();
 const data: Record<string, unknown> = {};
 const readErrors = new Set<string>();
+const authUser = vi.hoisted(() => ({ uid: "u1", email: "hoge@example.com" as string | null }));
 
 vi.mock("../firebase", () => ({ auth: {}, db: {}, functions: {} }));
 vi.mock("../auth", () => ({
-  useAuth: () => ({ user: { uid: "u1" }, loading: false, signIn: vi.fn(), signOut: vi.fn() }),
+  useAuth: () => ({ user: authUser, loading: false, signIn: vi.fn(), signOut: vi.fn() }),
 }));
 vi.mock("firebase/database", () => ({
   ref: (_db: unknown, path: string) => path,
@@ -48,12 +49,25 @@ beforeEach(() => {
   callable.mockReset();
   for (const k of Object.keys(data)) delete data[k];
   readErrors.clear();
+  authUser.email = "hoge@example.com";
   data["users/u1/sheets"] = { a1: true, b2: true };
   data["sheets/a1/fields"] = { char_name: "カタナ", char_class: "ファイター", char_level: "3" };
   data["sheets/b2/fields"] = { char_name: "ミナ", char_class: "ウィザード", char_level: "5" };
 });
 
 describe("ListPage", () => {
+  it("shows which address the user is signed in with", () => {
+    setup();
+    expect(screen.getByText("hoge@example.com でログイン中")).toBeInTheDocument();
+  });
+
+  it("shows no signed-in address when the account has none", () => {
+    authUser.email = null;
+    setup();
+    expect(screen.queryByText(/でログイン中/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ログアウト" })).toBeInTheDocument();
+  });
+
   it("hides the dev-only notice outside dev mode", () => {
     setup();
     expect(screen.queryByText(/このサイトは開発用です/)).not.toBeInTheDocument();
