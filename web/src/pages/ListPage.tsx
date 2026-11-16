@@ -115,9 +115,12 @@ export function ListPage() {
 
   return (
     <main>
-      <header className="bar">
+      <header className="list-head">
         <h1>キャラクター一覧</h1>
-        <button onClick={() => void signOut()}>ログアウト</button>
+        <div className="account">
+          {user!.email && <span className="signed-in">{user!.email} でログイン中</span>}
+          <button onClick={() => void signOut()}>ログアウト</button>
+        </div>
       </header>
       {/* build:dev（vite --mode dev）でビルドした開発環境だけに出す */}
       {import.meta.env.MODE === "dev" && (
